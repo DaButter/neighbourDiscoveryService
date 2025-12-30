@@ -1,2 +1,3 @@
-*.out
-*.elf
+obj/
+*.o
+neighbour_discovery_service
