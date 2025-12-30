@@ -12,7 +12,7 @@
 
 static constexpr uint16_t ETH_P_NEIGHBOR_DISC = 0x88B5;
 
-int main(int argc, char** argv)
+int main(int argc, char* argv[])
 {
     if (argc != 2) {
         std::cerr << "Usage: " << argv[0] << " <interface>\n";
@@ -21,16 +21,16 @@ int main(int argc, char** argv)
 
     const char* ifname = argv[1];
 
-    int sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_NEIGHBOR_DISC));
-    if (sock < 0) {
+    int sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_NEIGHBOR_DISC));
+    if (sockfd < 0) {
         perror("socket");
         return 1;
     }
 
-    // Get interface index
+    /* get host interface index */
     struct ifreq ifr{};
     std::strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
-    if (ioctl(sock, SIOCGIFINDEX, &ifr) < 0) {
+    if (ioctl(sockfd, SIOCGIFINDEX, &ifr) < 0) {
         perror("SIOCGIFINDEX");
         return 1;
     }
@@ -39,7 +39,7 @@ int main(int argc, char** argv)
     addr.sll_family = AF_PACKET;
     addr.sll_ifindex = ifr.ifr_ifindex;
 
-    if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+    if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         perror("bind");
         return 1;
     }
@@ -50,8 +50,12 @@ int main(int argc, char** argv)
     unsigned char buffer[2000];
 
     while (true) {
-        ssize_t n = recv(sock, buffer, sizeof(buffer), 0);
-        if (n <= 0) continue;
+        ssize_t n = recv(sockfd, buffer, sizeof(buffer), 0);
+
+        if (n <= 0) {
+            perror("recv");
+            continue;
+        }
 
         if (n < 14) continue; // not even Ethernet header
 
@@ -60,8 +64,8 @@ int main(int argc, char** argv)
         unsigned char* src = buffer + 6;
 
         // EtherType already filtered by kernel — but double check
-        uint16_t ethertype = (buffer[12] << 8) | buffer[13];
-        if (ethertype != ETH_P_NEIGHBOR_DISC) continue;
+        // uint16_t ethertype = (buffer[12] << 8) | buffer[13];
+        // if (ethertype != ETH_P_NEIGHBOR_DISC) continue;
 
         std::cout << "Received frame from "
                   << std::hex
