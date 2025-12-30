@@ -7,12 +7,6 @@ OBJ = $(SRC:src/%.cpp=$(OBJDIR)/%.o)
 
 OUT = neighbour_discovery_service
 
-help:
-	@echo "Makefile targets:"
-	@echo "  all   - Build the project (default)"
-	@echo "  clean - Remove build artifacts"
-	@echo "  help  - Shows this"
-
 all: $(OUT)
 
 $(OBJDIR):
@@ -29,3 +23,9 @@ $(OUT): $(OBJ)
 clean:
 	rm -rf $(OBJDIR) $(OUT)
 	@echo "Cleaned up."
+
+help:
+	@echo "Makefile targets:"
+	@echo "  all   - Build the project"
+	@echo "  clean - Remove build artifacts"
+	@echo "  help  - Shows this"

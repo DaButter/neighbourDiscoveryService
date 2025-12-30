@@ -1,16 +1,13 @@
 #include <iostream>
+#include <iomanip>
 #include <cstring>
 #include <sys/socket.h>
 #include <linux/if_packet.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
-
-#define SRC_MAC_OFFSET 6
-#define PAYLOAD_OFFSET 14
-#define MAC_ADDR_LEN 6
-
-static constexpr uint16_t ETH_P_NEIGHBOR_DISC = 0x88B5;
+#include "neighbor.hpp"
+#include <thread> // tmp for sleep
 
 int main(int argc, char* argv[]) {
     /* input handling */
@@ -78,12 +75,52 @@ int main(int argc, char* argv[]) {
     addr.sll_halen = MAC_ADDR_LEN;
     std::memcpy(addr.sll_addr, dst_mac, MAC_ADDR_LEN);
 
-    if (sendto(sockfd, frame, frame_len, 0,
-               (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("sendto");
+    // bind for listening replies (not strictly necessary for sending)
+    if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("bind");
         return 1;
     }
 
-    std::cout << "Sent raw Ethernet HELLO on " << ifname << "\n";
+    unsigned char buffer[2000];
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::seconds(5)); // send every 5 seconds
+
+        /* send data */
+        if (sendto(sockfd, frame, frame_len, 0,
+                   (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+            perror("sendto");
+            return 1;
+        }
+
+        std::cout << "Sent raw Ethernet HELLO on " << ifname << "\n";
+
+        /* receive reply */
+        ssize_t n = recv(sockfd, buffer, sizeof(buffer), 0);
+        if (n <= 0) {
+            perror("recv");
+            continue;
+        }
+
+        if (n < 14) continue;
+        unsigned char* src = buffer + 6;
+
+        std::cout << "Received packet from "
+                  << std::hex
+                  << std::setw(2) << std::setfill('0')
+                  << (int)src[0] << ":"
+                  << (int)src[1] << ":"
+                  << (int)src[2] << ":"
+                  << (int)src[3] << ":"
+                  << (int)src[4] << ":"
+                  << (int)src[5]
+                  << std::dec
+                  << "  payload: ";
+
+        // print payload as ASCII
+        for (int i = 14; i < n; ++i)
+            std::cout << (char)buffer[i];
+        std::cout << "\n";
+    }
+
     return 0;
 }
