@@ -10,7 +10,7 @@
 #include <arpa/inet.h>
 #include <iomanip>
 
-static constexpr uint16_t MY_ETHERTYPE = 0x88B5;
+static constexpr uint16_t ETH_P_NEIGHBOR_DISC = 0x88B5;
 
 int main(int argc, char** argv)
 {
@@ -21,7 +21,7 @@ int main(int argc, char** argv)
 
     const char* ifname = argv[1];
 
-    int sock = socket(AF_PACKET, SOCK_RAW, htons(MY_ETHERTYPE));
+    int sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_NEIGHBOR_DISC));
     if (sock < 0) {
         perror("socket");
         return 1;
@@ -45,7 +45,7 @@ int main(int argc, char** argv)
     }
 
     std::cout << "Listening on " << ifname << " for EtherType 0x"
-              << std::hex << MY_ETHERTYPE << std::dec << "\n";
+              << std::hex << ETH_P_NEIGHBOR_DISC << std::dec << "\n";
 
     unsigned char buffer[2000];
 
@@ -61,7 +61,7 @@ int main(int argc, char** argv)
 
         // EtherType already filtered by kernel — but double check
         uint16_t ethertype = (buffer[12] << 8) | buffer[13];
-        if (ethertype != MY_ETHERTYPE) continue;
+        if (ethertype != ETH_P_NEIGHBOR_DISC) continue;
 
         std::cout << "Received frame from "
                   << std::hex
