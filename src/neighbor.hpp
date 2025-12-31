@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <unordered_map>
 
-#define SRC_MAC_OFFSET 6
 #define PAYLOAD_OFFSET 14
 #define MAC_ADDR_LEN 6
 
