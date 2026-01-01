@@ -115,6 +115,7 @@ int main(int argc, char* argv[]) {
         // receive inBuf is small: 212992 bytes on my machine
         // if (n < 14) continue;
         printFrameData(inBuf, n);
+        storeNeighbor(inBuf, n, ifname);
     }
 
     return 0;
