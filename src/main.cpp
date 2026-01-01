@@ -40,14 +40,14 @@ int main(int argc, char* argv[]) {
     }
 
     /* construct ethernet frame */
-    const uint8_t* src_mac = reinterpret_cast<const uint8_t*>(ifr.ifr_hwaddr.sa_data);
-    const uint8_t dst_mac[MAC_ADDR_LEN] = {0xff,0xff,0xff,0xff,0xff,0xff}; // need to test - does this broadcast to all mac addresses?
-    printMAC(src_mac);
+    const uint8_t* srcMac = reinterpret_cast<const uint8_t*>(ifr.ifr_hwaddr.sa_data);
+    const uint8_t dstMac[MAC_ADDR_LEN] = {0xff,0xff,0xff,0xff,0xff,0xff}; // need to test - does this broadcast to all mac addresses?
+    printMAC(srcMac);
 
 
     size_t frame_len = PAYLOAD_OFFSET + sizeof(NeighborPayload);
     uint8_t frame[frame_len];
-    buildEthernetFrame(frame, src_mac, dst_mac);
+    buildEthernetFrame(frame, srcMac, dstMac);
 
 
     /* define where to send/recv data for socket */
@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
     addr.sll_family = AF_PACKET;
     addr.sll_ifindex = ifindex;
     addr.sll_halen = MAC_ADDR_LEN;
-    std::memcpy(addr.sll_addr, dst_mac, MAC_ADDR_LEN);
+    std::memcpy(addr.sll_addr, dstMac, MAC_ADDR_LEN);
 
     // binded to a specific interface
     if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
         // while processing packets, other packets may arrive - they will be inBufed by kernel in a queue
         // receive inBuf is small: 212992 bytes on my machine
         // if (n < 14) continue;
-        printBuffer(inBuf, n);
+        printFrameData(inBuf, n);
     }
 
     return 0;
