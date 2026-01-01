@@ -1,17 +1,5 @@
 #include "utils.hpp"
 
-// Helper for 64-bit network byte order
-#ifndef htonll
-uint64_t htonll(uint64_t value) {
-    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-        return ((uint64_t)htonl(value & 0xFFFFFFFF) << 32) | htonl(value >> 32);
-    #else
-        return value;
-    #endif
-}
-#define ntohll htonll
-#endif
-
 // TEMPORARY - DEBUG SRC MAC ADDR
 void printMAC(const uint8_t* mac) {
     std::cout << "Source MAC: ";
@@ -26,8 +14,8 @@ void printMAC(const uint8_t* mac) {
     std::cout << "\n";
 }
 
-void printBuffer(const uint8_t* buffer, ssize_t n) {
-    // should i filter out packets where size != 32?
+void printFrameData(const uint8_t* buffer, ssize_t n) {
+    // should i filter out packets where size != 34 bytes?
     std::cout << "Received packet of size: " << n << "\n";
 
     #define DST_MAC_ADDR_OFFSET 6 // need to clean this up later
@@ -45,23 +33,27 @@ void printBuffer(const uint8_t* buffer, ssize_t n) {
 
     const NeighborPayload* payload = reinterpret_cast<const NeighborPayload*>(buffer + PAYLOAD_OFFSET);
     uint32_t ipv4 = ntohl(payload->ipv4);
-    uint64_t timestamp = ntohll(payload->timestamp);
-    time_t recv_time = static_cast<time_t>(timestamp);
+    uint8_t* ipv6 = const_cast<uint8_t*>(payload->ipv6);
 
-    std::cout << "Received from IP: " << ipv4 << " at timestamp: " << recv_time << "\n";
+    std::cout << "Received from IPv4: " << ipv4 << " IPv6: ";
+    for (int i = 0; i < 16; ++i) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)ipv6[i];
+        if (i % 2 == 1 && i != 15) std::cout << ":";
+    }
+    std::cout << std::dec << "\n";
 }
 
-void buildEthernetFrame(uint8_t* frame, const uint8_t* src_mac, const uint8_t* dst_mac) {
-    std::memcpy(frame, dst_mac, MAC_ADDR_LEN);                 // Destination MAC
-    std::memcpy(frame + MAC_ADDR_LEN, src_mac, MAC_ADDR_LEN);  // Source MAC
+void buildEthernetFrame(uint8_t* frame, const uint8_t* srcMac, const uint8_t* dstMac) {
+    std::memcpy(frame, dstMac, MAC_ADDR_LEN);                 // Destination MAC
+    std::memcpy(frame + MAC_ADDR_LEN, srcMac, MAC_ADDR_LEN);  // Source MAC
 
     frame[ETH_TYPE_OFFSET] = (ETH_P_NEIGHBOR_DISC >> 8) & 0xff;
     frame[ETH_TYPE_OFFSET + 1] = (ETH_P_NEIGHBOR_DISC) & 0xff;
 
-    NeighborPayload hostData;
-    // std::memcpy(hostData.mac, src_mac, MAC_ADDR_LEN);
+    // dummy IP data for now
+    NeighborPayload hostData{};
     hostData.ipv4 = htonl(12345);
-    hostData.timestamp = htonll(static_cast<uint64_t>(time(nullptr)));
+    hostData.ipv6[0] = 0x66;
 
     std::memcpy(frame + PAYLOAD_OFFSET, &hostData, sizeof(hostData));
 }
