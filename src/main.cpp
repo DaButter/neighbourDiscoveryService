@@ -1,9 +1,8 @@
 #include <cstring>
 #include <sys/socket.h>
 #include <linux/if_packet.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
 #include <arpa/inet.h>
+#include <sys/ioctl.h>
 #include "utils.hpp"
 
 int main(int argc, char* argv[]) {
@@ -45,9 +44,10 @@ int main(int argc, char* argv[]) {
     const uint8_t dst_mac[MAC_ADDR_LEN] = {0xff,0xff,0xff,0xff,0xff,0xff}; // need to test - does this broadcast to all mac addresses?
     printMAC(src_mac);
 
-    uint8_t frame[1500]; // we know that we just need 2 mac addresses + ethertype + payload - will reduce size later
+
+    size_t frame_len = PAYLOAD_OFFSET + sizeof(NeighborPayload);
+    uint8_t frame[frame_len];
     buildEthernetFrame(frame, src_mac, dst_mac);
-    size_t frame_len = PAYLOAD_OFFSET + std::strlen("HELLO_FROM_VM1_AUSTRIS"); // hardcoded for now - size will be a struct
 
 
     /* define where to send/recv data for socket */
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
     }
 
     /* main loop - listen and send */
-    uint8_t buffer[2000]; // we know what to expect - will reduce size later
+    uint8_t inBuf[frame_len];
     time_t last_send_time = time(nullptr);
     const int SEND_INTERVAL_SEC = 5;
 
@@ -82,7 +82,7 @@ int main(int argc, char* argv[]) {
                 perror("sendto");
                 return 1;
             }
-            std::cout << "Sent raw Ethernet HELLO on " << ifname << "\n";
+            std::cout << "Sent packets to neighbour on: " << ifname << "\n";
             last_send_time = time(nullptr);
             time_to_next_send = SEND_INTERVAL_SEC;
         }
@@ -104,17 +104,17 @@ int main(int argc, char* argv[]) {
         }
 
         /* read incoming packet */
-        // this reads packets one by one - will need to consider optimizing + think if kernel buffer is not dropping packets for 10 000 neighbours
-        ssize_t n = recv(sockfd, buffer, sizeof(buffer), 0); // MSG_DONTWAIT ?
+        // this reads packets one by one - will need to consider optimizing + think if kernel inBuf is not dropping packets for 10 000 neighbours
+        ssize_t n = recv(sockfd, inBuf, sizeof(inBuf), 0); // MSG_DONTWAIT ?
         if (n <= 0) {
             perror("recv");
             continue;
-        } // could check if size is as expected - i will have my own protocol
+        }
 
-        // while processing packets, other packets may arrive - they will be buffered by kernel in a queue
-        // receive buffer is small: 212992 bytes on my machine
+        // while processing packets, other packets may arrive - they will be inBufed by kernel in a queue
+        // receive inBuf is small: 212992 bytes on my machine
         // if (n < 14) continue;
-        printBuffer(buffer, n);
+        printBuffer(inBuf, n);
     }
 
     return 0;
