@@ -23,3 +23,18 @@ sudo apt install openssh-server
 To access VMs, need to enable port forwarding in Adatper 1: host port 2222, guest port 22, name SSH
 connect via: ssh -p 2222 username@127.0.0.1
 for other VMs, forward a different host port, f.e. 2223
+
+
+## Add ips to interfaces
+
+```bash
+sudo ip addr add 192.168.56.10/24 dev enp0s8
+sudo ip addr add 2001:db8::10/64 dev enp0s8
+ip addr show enp0s8
+```
+
+del
+```bash
+sudo ip addr del 192.168.56.10/24 dev enp0s8
+sudo ip addr del 2001:db8::10/64 dev enp0s8
+```

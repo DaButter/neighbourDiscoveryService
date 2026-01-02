@@ -8,6 +8,10 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <unordered_map>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <ifaddrs.h>
+#include <sys/types.h>
 
 #define MAC_ADDR_LEN 6
 #define ETH_TYPE_OFFSET 12
@@ -16,9 +20,13 @@
 static constexpr uint16_t ETH_P_NEIGHBOR_DISC = 0x88B5;
 
 void printMAC(const uint8_t* mac);
-void printFrameData(const uint8_t* buffer, ssize_t n);
-void buildEthernetFrame(uint8_t* frame, const uint8_t* srcMac, const uint8_t* dstMac);
+void printFrameData(const uint8_t* buffer);
+void buildEthernetFrame(uint8_t* frame, const uint8_t* srcMac, const uint8_t* dstMac, const char* ifname);
 void storeNeighbor(const uint8_t* buffer, ssize_t n, const char* ifname);
+
+uint32_t getInterfaceIPv4(const char* ifname);
+bool getInterfaceIPv6(const char* ifname, uint8_t* ipv6_out);
+std::string macToString(const uint8_t* mac);
 
 // payload structure sent to/from neighbors
 struct NeighborPayload {
