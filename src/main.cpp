@@ -24,9 +24,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    /* get host interface index */
     struct ifreq ifr{};
     std::strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
+
+    /* get host interface index */
     if (ioctl(sockfd, SIOCGIFINDEX, &ifr) < 0) {
         perror("SIOCGIFINDEX");
         return 1;
@@ -39,6 +40,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    /* get host IPv4 address */
+
+    /* get host IPv6 address */
+
     /* construct ethernet frame */
     const uint8_t* srcMac = reinterpret_cast<const uint8_t*>(ifr.ifr_hwaddr.sa_data);
     const uint8_t dstMac[MAC_ADDR_LEN] = {0xff,0xff,0xff,0xff,0xff,0xff}; // need to test - does this broadcast to all mac addresses?
@@ -47,7 +52,7 @@ int main(int argc, char* argv[]) {
 
     size_t frame_len = PAYLOAD_OFFSET + sizeof(NeighborPayload);
     uint8_t frame[frame_len];
-    buildEthernetFrame(frame, srcMac, dstMac);
+    buildEthernetFrame(frame, srcMac, dstMac, ifname);
 
 
     /* define where to send/recv data for socket */
@@ -113,8 +118,7 @@ int main(int argc, char* argv[]) {
 
         // while processing packets, other packets may arrive - they will be inBufed by kernel in a queue
         // receive inBuf is small: 212992 bytes on my machine
-        // if (n < 14) continue;
-        printFrameData(inBuf, n);
+        printFrameData(inBuf);
         storeNeighbor(inBuf, n, ifname);
     }
 

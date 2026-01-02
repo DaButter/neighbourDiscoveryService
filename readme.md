@@ -1,4 +1,4 @@
-Defined custom ethertype: 
+Defined custom ethertype:
 
 ```c
 ETH_P_NEIGHBOR_DISC = 0x88B5
