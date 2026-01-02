@@ -18,6 +18,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    /* layer 2 socket */
     int sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_NEIGHBOR_DISC));
     if (sockfd < 0) {
         perror("socket");
@@ -40,14 +41,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    /* get host IPv4 address */
-
-    /* get host IPv6 address */
-
     /* construct ethernet frame */
     const uint8_t* srcMac = reinterpret_cast<const uint8_t*>(ifr.ifr_hwaddr.sa_data);
     const uint8_t dstMac[MAC_ADDR_LEN] = {0xff,0xff,0xff,0xff,0xff,0xff}; // need to test - does this broadcast to all mac addresses?
-    printMAC(srcMac);
+    debug::printMAC(srcMac);
 
 
     size_t frame_len = PAYLOAD_OFFSET + sizeof(NeighborPayload);
@@ -118,7 +115,7 @@ int main(int argc, char* argv[]) {
 
         // while processing packets, other packets may arrive - they will be inBufed by kernel in a queue
         // receive inBuf is small: 212992 bytes on my machine
-        printFrameData(inBuf);
+        debug::printFrameData(inBuf);
         storeNeighbor(inBuf, n, ifname);
     }
 
