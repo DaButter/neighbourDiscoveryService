@@ -18,8 +18,8 @@ namespace debug {
         std::cout << "\n";
     }
 
-    void printMACFromString(const std::string& mac_str) {
-        const uint8_t* mac = reinterpret_cast<const uint8_t*>(mac_str.data());
+    void printMACFromString(const std::string& macStr) {
+        const uint8_t* mac = reinterpret_cast<const uint8_t*>(macStr.data());
         std::cout << std::hex << std::setfill('0')
                   << std::setw(2) << (int)mac[0] << ":"
                   << std::setw(2) << (int)mac[1] << ":"
@@ -107,9 +107,10 @@ void timeoutNeighbors() {
     }
 }
 
-void buildEthernetFrame(uint8_t* frame, const uint8_t* srcMac, const uint8_t* dstMac, const char* ifname) {
-    std::memcpy(frame, dstMac, MAC_ADDR_LEN);                 // Destination MAC
-    std::memcpy(frame + MAC_ADDR_LEN, srcMac, MAC_ADDR_LEN);  // Source MAC
+void buildEthernetFrame(uint8_t* frame, const uint8_t* srcMac, uint32_t ipv4, const uint8_t* ipv6) {
+
+    std::memcpy(frame, broadcastMac, MAC_ADDR_LEN);           // destination MAC
+    std::memcpy(frame + MAC_ADDR_LEN, srcMac, MAC_ADDR_LEN);  // source MAC
 
     // TMP: for test purposes, hardcoded src MAC
     // const uint8_t hardcodedSrcMac[MAC_ADDR_LEN] = {0xDE,0xAD,0xBE,0xEF,0x00,0x01};
@@ -119,63 +120,8 @@ void buildEthernetFrame(uint8_t* frame, const uint8_t* srcMac, const uint8_t* ds
     frame[ETH_TYPE_OFFSET + 1] = (ETH_P_NEIGHBOR_DISC) & 0xff;
 
     NeighborPayload hostData{};
-    hostData.ipv4 = getInterfaceIPv4(ifname);
-    if (!getInterfaceIPv6(ifname, hostData.ipv6)) {
-        std::memset(hostData.ipv6, 0, sizeof(hostData.ipv6));
-    }
+    hostData.ipv4 = ipv4;
+    std::memcpy(hostData.ipv6, ipv6, sizeof(hostData.ipv6));
 
     std::memcpy(frame + PAYLOAD_OFFSET, &hostData, sizeof(hostData));
-}
-
-
-uint32_t getInterfaceIPv4(const char* ifname) {
-    /* tmp layer 3 socket to get IPv4 of interface */
-    int temp_sock = socket(AF_INET, SOCK_DGRAM, 0); // we may reuse the sockfd if defined globally
-    if (temp_sock < 0) {
-        return 0;
-    }
-
-    struct ifreq ifr{};
-    std::strncpy(ifr.ifr_name, ifname, IFNAMSIZ - 1);
-
-    if (ioctl(temp_sock, SIOCGIFADDR, &ifr) < 0) {
-        close(temp_sock);
-        return 0;
-    }
-
-    close(temp_sock);
-
-    struct sockaddr_in* addr = reinterpret_cast<struct sockaddr_in*>(&ifr.ifr_addr);
-    return addr->sin_addr.s_addr;
-}
-
-// use getifaddrs() (no socket needed)
-bool getInterfaceIPv6(const char* ifname, uint8_t* ipv6) {
-    struct ifaddrs* ifaddr;
-    if (getifaddrs(&ifaddr) == -1) {
-        return false;
-    }
-
-    bool found = false;
-    // do we need to loop through? maybe there is some more optimal way
-    for (struct ifaddrs* ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr == nullptr) continue;
-        if (std::strcmp(ifa->ifa_name, ifname) != 0) continue;
-
-        if (ifa->ifa_addr->sa_family == AF_INET6) {
-            struct sockaddr_in6* addr6 = reinterpret_cast<struct sockaddr_in6*>(ifa->ifa_addr);
-
-            // skip link-local addresses (fe80::)
-            if (IN6_IS_ADDR_LINKLOCAL(&addr6->sin6_addr)) {
-                continue;
-            }
-
-            std::memcpy(ipv6, addr6->sin6_addr.s6_addr, sizeof(NeighborPayload::ipv6));
-            found = true;
-            break;
-        }
-    }
-
-    freeifaddrs(ifaddr);
-    return found;
 }

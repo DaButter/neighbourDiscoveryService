@@ -26,18 +26,19 @@
 */
 static constexpr uint16_t ETH_P_NEIGHBOR_DISC = 0x88B5;
 
+static const uint8_t broadcastMac[MAC_ADDR_LEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
 namespace debug {
     void printMAC(const uint8_t* mac);
-    void printMACFromString(const std::string& mac_str);
+    void printMACFromString(const std::string& macStr);
     void printFrameData(const uint8_t* buffer);
 }
 
-void buildEthernetFrame(uint8_t* frame, const uint8_t* srcMac, const uint8_t* dstMac, const char* ifname);
+void buildEthernetFrame(uint8_t* frame, const uint8_t* srcMac, uint32_t ipv4, const uint8_t* ipv6);
+
 void storeNeighbor(const uint8_t* buffer, ssize_t n, const char* ifname);
 void timeoutNeighbors();
 
-uint32_t getInterfaceIPv4(const char* ifname);
-bool getInterfaceIPv6(const char* ifname, uint8_t* ipv6_out);
 std::string macToString(const uint8_t* mac);
 
 // interface may have multiple addresses - for now we send just the first one we get

@@ -38,3 +38,10 @@ del
 sudo ip addr del 192.168.56.10/24 dev enp0s8
 sudo ip addr del 2001:db8::10/64 dev enp0s8
 ```
+
+Test down interfaces and mac addr updates
+```bash
+sudo ip link set enp0s8 down
+sudo ip link set enp0s8 address 02:01:02:03:04:05
+sudo ip link set enp0s8 up
+```
