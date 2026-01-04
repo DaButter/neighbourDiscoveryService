@@ -13,10 +13,17 @@
 #include <ifaddrs.h>
 #include <sys/types.h>
 
+// maybe redefine these as uint or smth later for cleanup
 #define MAC_ADDR_LEN 6
 #define ETH_TYPE_OFFSET 12
 #define PAYLOAD_OFFSET 14
 
+#define NEIGHBOR_EXPIRY_SECONDS 30
+
+/*
+    IEEE Std 802 - Local Experimental Ethertype, so we can use this one safely
+    https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers.xhtml
+*/
 static constexpr uint16_t ETH_P_NEIGHBOR_DISC = 0x88B5;
 
 namespace debug {
@@ -27,11 +34,14 @@ namespace debug {
 
 void buildEthernetFrame(uint8_t* frame, const uint8_t* srcMac, const uint8_t* dstMac, const char* ifname);
 void storeNeighbor(const uint8_t* buffer, ssize_t n, const char* ifname);
+void timeoutNeighbors();
 
 uint32_t getInterfaceIPv4(const char* ifname);
 bool getInterfaceIPv6(const char* ifname, uint8_t* ipv6_out);
 std::string macToString(const uint8_t* mac);
 
+// interface may have multiple addresses - for now we send just the first one we get
+// will need to improve later...
 struct NeighborPayload {
     uint32_t ipv4;
     uint8_t ipv6[16];

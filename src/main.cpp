@@ -4,24 +4,25 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include "utils.hpp"
+#include "logger.hpp"
 
 int main(int argc, char* argv[]) {
     /* input handling */
     if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " <interface>\n";
+        LOG_ERROR("Usage: " << argv[0] << " <interface>");
         return 1;
     }
 
     const char* ifname = argv[1];
     if (strlen(ifname) >= IFNAMSIZ) {
-        std::cerr << "ERROR: Interface name longer than 16 bytes\n";
+        LOG_ERROR("Interface name longer than 16 bytes");
         return 1;
     }
 
     /* layer 2 socket */
     int sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_NEIGHBOR_DISC));
     if (sockfd < 0) {
-        perror("socket");
+        LOG_ERROR("socket() Failed to create raw socket: " << strerror(errno));
         return 1;
     }
 
@@ -30,20 +31,20 @@ int main(int argc, char* argv[]) {
 
     /* get host interface index */
     if (ioctl(sockfd, SIOCGIFINDEX, &ifr) < 0) {
-        perror("SIOCGIFINDEX");
+        LOG_ERROR("ioctl() SIOCGIFINDEX: Failed to get index for interface: " << strerror(errno));
         return 1;
     }
     int ifindex = ifr.ifr_ifindex;
 
     /* get host MAC address */
     if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) < 0) {
-        perror("SIOCGIFHWADDR");
+        LOG_ERROR("ioctl() SIOCGIFHWADDR: Failed to get MAC address for interface: " << strerror(errno));
         return 1;
     }
 
     /* construct ethernet frame */
     const uint8_t* srcMac = reinterpret_cast<const uint8_t*>(ifr.ifr_hwaddr.sa_data);
-    const uint8_t dstMac[MAC_ADDR_LEN] = {0xff,0xff,0xff,0xff,0xff,0xff}; // need to test - does this broadcast to all mac addresses?
+    const uint8_t dstMac[MAC_ADDR_LEN] = {0xff,0xff,0xff,0xff,0xff,0xff}; // need to test - does broadcasting work without promiscous mode?
     debug::printMAC(srcMac);
 
 
@@ -61,7 +62,7 @@ int main(int argc, char* argv[]) {
 
     // binded to a specific interface
     if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("bind");
+        LOG_ERROR("bind() Failed to bind socket to interface: " << strerror(errno));
         return 1;
     }
 
@@ -72,6 +73,7 @@ int main(int argc, char* argv[]) {
 
     struct timeval timeout{};
 
+    LOG_INFO("Neighbour Discovery Service started on interface: " << ifname); // one interface for now
     while (true) {
         // calculate time until next send
         time_t now = time(nullptr);
@@ -81,10 +83,10 @@ int main(int argc, char* argv[]) {
         if (time_to_next_send <= 0) {
             if (sendto(sockfd, frame, frame_len, 0,
                        (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-                perror("sendto");
+                LOG_ERROR("sendto() failed: " << strerror(errno));
                 return 1;
             }
-            std::cout << "Sent packets to neighbour on: " << ifname << "\n";
+            LOG_DEBUG("Sent packet to neighbour on: " << ifname);
             last_send_time = time(nullptr);
             time_to_next_send = SEND_INTERVAL_SEC;
         }
@@ -117,6 +119,7 @@ int main(int argc, char* argv[]) {
         // receive inBuf is small: 212992 bytes on my machine
         debug::printFrameData(inBuf);
         storeNeighbor(inBuf, n, ifname);
+        timeoutNeighbors();
     }
 
     return 0;

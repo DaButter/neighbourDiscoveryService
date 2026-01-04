@@ -1,4 +1,5 @@
 #include "utils.hpp"
+#include "logger.hpp"
 
 std::unordered_map<std::string, Neighbour> neighbors;
 
@@ -67,7 +68,7 @@ std::string macToString(const uint8_t* mac) {
 void storeNeighbor(const uint8_t* buffer, ssize_t n, const char* ifname) {
     // do we even need to validate this stuff? my protocol is strict :)
     if (n < PAYLOAD_OFFSET + (ssize_t)sizeof(NeighborPayload)) {
-        std::cerr << "Packet too small, ignoring\n";
+        LOG_ERROR("Packet too small, ignoring");
         return;
     }
 
@@ -84,7 +85,7 @@ void storeNeighbor(const uint8_t* buffer, ssize_t n, const char* ifname) {
 
     neighbors[mac_key] = neighbor;
 
-    std::cout << "Current neighbors:\n";
+    LOG_DEBUG("Current neighbors:");
     for (const auto& [mac_str, neighbor] : neighbors) {
         std::cout << "MAC: ";
         debug::printMACFromString(mac_str);  // convert binary to hex
@@ -92,6 +93,19 @@ void storeNeighbor(const uint8_t* buffer, ssize_t n, const char* ifname) {
     }
 }
 
+void timeoutNeighbors() {
+    time_t now = time(nullptr);
+    for (auto it = neighbors.begin(); it != neighbors.end(); ) {
+        if (now - it->second.lastSeen > NEIGHBOR_EXPIRY_SECONDS) {
+            LOG_DEBUG("Neighbor timed out: ");
+            debug::printMACFromString(it->first);
+            std::cout << "\n";
+            it = neighbors.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
 
 void buildEthernetFrame(uint8_t* frame, const uint8_t* srcMac, const uint8_t* dstMac, const char* ifname) {
     std::memcpy(frame, dstMac, MAC_ADDR_LEN);                 // Destination MAC
@@ -115,8 +129,8 @@ void buildEthernetFrame(uint8_t* frame, const uint8_t* srcMac, const uint8_t* ds
 
 
 uint32_t getInterfaceIPv4(const char* ifname) {
-    /* tmp layer 3 socket */
-    int temp_sock = socket(AF_INET, SOCK_DGRAM, 0);
+    /* tmp layer 3 socket to get IPv4 of interface */
+    int temp_sock = socket(AF_INET, SOCK_DGRAM, 0); // we may reuse the sockfd if defined globally
     if (temp_sock < 0) {
         return 0;
     }
@@ -143,6 +157,7 @@ bool getInterfaceIPv6(const char* ifname, uint8_t* ipv6) {
     }
 
     bool found = false;
+    // do we need to loop through? maybe there is some more optimal way
     for (struct ifaddrs* ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr == nullptr) continue;
         if (std::strcmp(ifa->ifa_name, ifname) != 0) continue;
