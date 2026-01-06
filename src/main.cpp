@@ -39,17 +39,14 @@ int main() {
         /* send on all interfaces that need it */
         for (auto& [ifname, ethInterface] : activeEthInterfaces) {
             if (now - ethInterface.last_send_time >= SEND_INTERVAL_SEC) {
-                // rebuild frame with cached IPs (IP changes detected in checkEthInterfaces)
-                buildEthernetFrame(ethInterface.send_frame, ethInterface.mac, ethInterface.ipv4, ethInterface.ipv6);
 
-                struct sockaddr_ll addr{};
-                addr.sll_family = AF_PACKET;
-                addr.sll_ifindex = ethInterface.ifindex;
-                addr.sll_halen = MAC_ADDR_LEN;
-                std::memcpy(addr.sll_addr, broadcastMac, MAC_ADDR_LEN);
+                ssize_t sent = sendto(ethInterface.sockfd,
+                                      ethInterface.send_frame,
+                                      sizeof(ethInterface.send_frame),
+                                      0,
+                                      (struct sockaddr*)&ethInterface.send_addr,
+                                      sizeof(ethInterface.send_addr));
 
-                ssize_t sent = sendto(ethInterface.sockfd, ethInterface.send_frame, sizeof(ethInterface.send_frame), 0,
-                                      (struct sockaddr*)&addr, sizeof(addr));
                 if (sent < 0) {
                     LOG_ERROR("sendto() failed on " << ifname << ": " << strerror(errno));
                 } else {
