@@ -25,7 +25,6 @@ struct EthInterface {
 struct ActiveEthInterface {
     EthInterface ifData;
     int sockfd;
-    time_t last_send_time; // do we need this?
     uint8_t send_frame[PAYLOAD_OFFSET + sizeof(NeighborPayload)];
     struct sockaddr_ll send_addr = {};
 };

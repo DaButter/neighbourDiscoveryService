@@ -78,11 +78,10 @@ std::unordered_map<std::string, EthInterface> discoverEthInterfaces() {
 
 
 void updateInterface(const EthInterface& ethInterface) {
-    auto it = activeEthInterfaces.find(ethInterface.name);
+    /* will ignore MAC change for now, will need to implement that */
 
-    /* will ignore MAC change for now, will need to make that */
+    ActiveEthInterface& activeIf = activeEthInterfaces.find(ethInterface.name)->second;
 
-    ActiveEthInterface& activeIf = it->second;
     if (activeIf.ifData.ipv4 != ethInterface.ipv4 || std::memcmp(activeIf.ifData.ipv6, ethInterface.ipv6, 16) != 0) {
         LOG_INFO("IP address change detected on " << ethInterface.name);
 
@@ -127,7 +126,6 @@ void addInterface(const EthInterface& ethInterface) {
     activeIfData.sockfd = sockfd;
     activeIfData.ifData.ifindex = ethInterface.ifindex;
     std::memcpy(activeIfData.ifData.mac, ethInterface.mac, MAC_ADDR_LEN);
-    activeIfData.last_send_time = 0; // do we need this?
 
     if (ethInterface.hasIPv4())  activeIfData.ifData.ipv4 = ethInterface.ipv4;
     if (ethInterface.hasIPv6())  std::memcpy(activeIfData.ifData.ipv6, ethInterface.ipv6, 16);

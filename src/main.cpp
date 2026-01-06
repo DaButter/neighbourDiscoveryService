@@ -19,9 +19,7 @@ int main() {
     }
 
     const int SEND_INTERVAL_SEC = 5;
-    const int INTERFACE_CHECK_INTERVAL_SEC = 10;
-    time_t last_interface_check = time(nullptr);
-
+    time_t last_send_time = 0;
     uint8_t recvBuf[PAYLOAD_OFFSET + sizeof(NeighborPayload)]; // for now like this, but will need to handle multiple IPs later
 
     LOG_INFO("Service running on " << activeEthInterfaces.size() << " interface(s)");
@@ -29,42 +27,39 @@ int main() {
     /* main loop */
     while (true) {
         time_t now = time(nullptr);
+        timeoutNeighbors(now);
 
         /* periodically check for interface changes */
-        if (now - last_interface_check >= INTERFACE_CHECK_INTERVAL_SEC) {
-            checkEthInterfaces();
-            last_interface_check = now;
-        }
+        if (now - last_send_time >= SEND_INTERVAL_SEC) {
+            checkEthInterfaces(); // recheck interfaces before sending
 
-        /* send on all interfaces that need it */
-        for (auto& [ifname, ethInterface] : activeEthInterfaces) {
-            if (now - ethInterface.last_send_time >= SEND_INTERVAL_SEC) {
+            if (activeEthInterfaces.empty()) {
+                LOG_INFO("No active Ethernet interfaces found, skipping send");
+                last_send_time = now;
+                continue;
+            }
 
+            /* send on all active interfaces */
+            for (auto& [ifname, ethInterface] : activeEthInterfaces) {
                 ssize_t sent = sendto(ethInterface.sockfd,
                                       ethInterface.send_frame,
                                       sizeof(ethInterface.send_frame),
                                       0,
                                       (struct sockaddr*)&ethInterface.send_addr,
                                       sizeof(ethInterface.send_addr));
-
                 if (sent < 0) {
                     LOG_ERROR("sendto() failed on " << ifname << ": " << strerror(errno));
                 } else {
                     LOG_DEBUG("Sent packet on " << ifname);
-                    ethInterface.last_send_time = now;
                 }
             }
+
+            last_send_time = now;
         }
 
         /* calculate timeout for select() */
-        time_t min_time_to_send = SEND_INTERVAL_SEC;
-        for (const auto& [ifname, ethInterface] : activeEthInterfaces) {
-            time_t time_to_send = SEND_INTERVAL_SEC - (now - ethInterface.last_send_time);
-            if (time_to_send < min_time_to_send) {
-                min_time_to_send = time_to_send;
-            }
-        }
-        if (min_time_to_send < 0) min_time_to_send = 0;
+        time_t time_until_send = SEND_INTERVAL_SEC - (now - last_send_time);
+        if (time_until_send < 0) time_until_send = 0;
 
         /* build fd_set for all interfaces */
         fd_set readfds;
@@ -80,7 +75,7 @@ int main() {
 
         /* wait for incoming packets */
         struct timeval timeout{};
-        timeout.tv_sec = min_time_to_send;
+        timeout.tv_sec = time_until_send;
         // timeout.tv_usec = 0;
 
         int ret = select(max_fd + 1, &readfds, nullptr, nullptr, &timeout);
@@ -109,10 +104,7 @@ int main() {
                 storeNeighbor(recvBuf, n, ifname.c_str());
             }
         }
-
-        timeoutNeighbors();
     }
-
 
     // cleanup
     for (auto& [ifname, ethInterface] : activeEthInterfaces) {

@@ -93,8 +93,7 @@ void storeNeighbor(const uint8_t* buffer, ssize_t n, const char* ifname) {
     }
 }
 
-void timeoutNeighbors() {
-    time_t now = time(nullptr);
+void timeoutNeighbors(time_t& now) {
     for (auto it = neighbors.begin(); it != neighbors.end(); ) {
         if (now - it->second.lastSeen > NEIGHBOR_EXPIRY_SECONDS) {
             LOG_DEBUG("Neighbor timed out: ");

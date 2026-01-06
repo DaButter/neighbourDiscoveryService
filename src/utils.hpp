@@ -37,7 +37,7 @@ namespace debug {
 void buildEthernetFrame(uint8_t* frame, const uint8_t* srcMac, uint32_t ipv4, const uint8_t* ipv6);
 
 void storeNeighbor(const uint8_t* buffer, ssize_t n, const char* ifname);
-void timeoutNeighbors();
+void timeoutNeighbors(time_t& now);
 
 std::string macToString(const uint8_t* mac);
 
