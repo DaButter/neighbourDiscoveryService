@@ -1,9 +1,21 @@
 #include "utils.hpp"
-#include "logger.hpp"
 
-std::unordered_map<std::string, Neighbour> neighbors;
+std::string getTimestamp() {
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
 
-/* TEMPORARY FOR DEBUGGING , will use for CLI later */
+    time_t now = tv.tv_sec;
+    struct tm* tm_info = localtime(&now);
+
+    char buffer[32];
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info);
+
+    char timestamp[64];
+    snprintf(timestamp, sizeof(timestamp), "%s.%06ld", buffer, tv.tv_usec);
+
+    return std::string(timestamp);
+}
+
 namespace debug {
     void printMAC(const uint8_t* mac) {
         std::cout << "Source MAC: ";
@@ -59,68 +71,25 @@ namespace debug {
         }
         std::cout << std::dec << "\n";
     }
-}
 
-std::string macToString(const uint8_t* mac) {
-    return std::string(reinterpret_cast<const char*>(mac), MAC_ADDR_LEN);
-}
-
-void storeNeighbor(const uint8_t* buffer, ssize_t n, const char* ifname) {
-    // do we even need to validate this stuff? my protocol is strict :)
-    if (n < PAYLOAD_OFFSET + (ssize_t)sizeof(NeighborPayload)) {
-        LOG_ERROR("Packet too small, ignoring");
-        return;
-    }
-
-    const uint8_t* src_mac = buffer + MAC_ADDR_LEN;
-    std::string mac_key = macToString(src_mac);
-
-    const NeighborPayload* payload = reinterpret_cast<const NeighborPayload*>(buffer + PAYLOAD_OFFSET);
-
-    // store or update neighbor info
-    Neighbour neighbor{};
-    std::memcpy(&neighbor.payload, payload, sizeof(NeighborPayload));
-    std::strncpy(neighbor.ifName, ifname, IFNAMSIZ);
-    neighbor.lastSeen = time(nullptr);
-
-    neighbors[mac_key] = neighbor;
-
-    LOG_DEBUG("Current neighbors:");
-    for (const auto& [mac_str, neighbor] : neighbors) {
-        std::cout << "MAC: ";
-        debug::printMACFromString(mac_str);  // convert binary to hex
-        std::cout << " on " << neighbor.ifName << "\n";
+    std::string macToString(const uint8_t* mac) {
+        return std::string(reinterpret_cast<const char*>(mac), MAC_ADDR_LEN);
     }
 }
 
-void timeoutNeighbors(time_t& now) {
-    for (auto it = neighbors.begin(); it != neighbors.end(); ) {
-        if (now - it->second.lastSeen > NEIGHBOR_EXPIRY_SECONDS) {
-            LOG_DEBUG("Neighbor timed out: ");
-            debug::printMACFromString(it->first);
-            std::cout << "\n";
-            it = neighbors.erase(it);
-        } else {
-            ++it;
-        }
+namespace frame {
+    void build(uint8_t* frame, const uint8_t* srcMac, const uint32_t& ipv4, const uint8_t* ipv6) {
+
+        std::memcpy(frame, broadcastMac, MAC_ADDR_LEN);           // destination MAC
+        std::memcpy(frame + MAC_ADDR_LEN, srcMac, MAC_ADDR_LEN);  // source MAC
+
+        frame[ETH_TYPE_OFFSET] = (ETH_P_NEIGHBOR_DISC >> 8) & 0xff;
+        frame[ETH_TYPE_OFFSET + 1] = (ETH_P_NEIGHBOR_DISC) & 0xff;
+
+        NeighborPayload hostData{};
+        hostData.ipv4 = ipv4;
+        std::memcpy(hostData.ipv6, ipv6, sizeof(hostData.ipv6));
+
+        std::memcpy(frame + PAYLOAD_OFFSET, &hostData, sizeof(hostData));
     }
-}
-
-void buildEthernetFrame(uint8_t* frame, const uint8_t* srcMac, uint32_t ipv4, const uint8_t* ipv6) {
-
-    std::memcpy(frame, broadcastMac, MAC_ADDR_LEN);           // destination MAC
-    std::memcpy(frame + MAC_ADDR_LEN, srcMac, MAC_ADDR_LEN);  // source MAC
-
-    // TMP: for test purposes, hardcoded src MAC
-    // const uint8_t hardcodedSrcMac[MAC_ADDR_LEN] = {0xDE,0xAD,0xBE,0xEF,0x00,0x01};
-    // std::memcpy(frame + MAC_ADDR_LEN, hardcodedSrcMac, MAC_ADDR_LEN);
-
-    frame[ETH_TYPE_OFFSET] = (ETH_P_NEIGHBOR_DISC >> 8) & 0xff;
-    frame[ETH_TYPE_OFFSET + 1] = (ETH_P_NEIGHBOR_DISC) & 0xff;
-
-    NeighborPayload hostData{};
-    hostData.ipv4 = ipv4;
-    std::memcpy(hostData.ipv6, ipv6, sizeof(hostData.ipv6));
-
-    std::memcpy(frame + PAYLOAD_OFFSET, &hostData, sizeof(hostData));
 }

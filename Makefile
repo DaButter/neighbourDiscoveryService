@@ -5,7 +5,7 @@ OBJDIR = obj
 SRC = $(wildcard src/*.cpp)
 OBJ = $(SRC:src/%.cpp=$(OBJDIR)/%.o)
 
-OUT = neighbour_discovery_service
+OUT = neighbor_discovery_service
 
 all: $(OUT)
 
