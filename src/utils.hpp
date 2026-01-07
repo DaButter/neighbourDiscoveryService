@@ -13,6 +13,9 @@ std::string getTimestamp();
 #define LOG_DEBUG(msg) \
     std::cout << "|DEBUG " << getTimestamp() << "| " << msg << std::endl
 
+#define LOG_WARN(msg) \
+    std::cout << "|WARN  " << getTimestamp() << "| " << msg << std::endl
+
 #define LOG_INFO(msg) \
     std::cout << "|INFO  " << getTimestamp() << "| " << msg << std::endl
 

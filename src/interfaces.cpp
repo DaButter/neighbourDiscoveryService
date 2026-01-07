@@ -27,7 +27,7 @@ namespace interfaces {
             iface.name = ifname;
 
             switch (ifa->ifa_addr->sa_family) {
-                // link layer - get MAC address and interface index
+                /* link layer - get MAC address and interface index */
                 case AF_PACKET: {
                     struct sockaddr_ll* addr_ll = (struct sockaddr_ll*)ifa->ifa_addr;
                     iface.ifindex = addr_ll->sll_ifindex;
@@ -37,14 +37,14 @@ namespace interfaces {
                     break;
                 }
 
-                // network layer - get ipv4 address
+                /* network layer - get ipv4 address */
                 case AF_INET: {
                     struct sockaddr_in* addr_in = (struct sockaddr_in*)ifa->ifa_addr;
                     iface.ipv4 = addr_in->sin_addr.s_addr;
                     break;
                 }
 
-                // network layer - get ipv6 address
+                /* network layer - get ipv6 address */
                 case AF_INET6: {
                     struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)ifa->ifa_addr;
                     if (!IN6_IS_ADDR_LINKLOCAL(&addr_in6->sin6_addr)) {
@@ -73,15 +73,55 @@ namespace interfaces {
     }
 
     void update(const EthInterface& ethInterface) {
-        /* will ignore MAC change for now, will need to implement that */
+        auto it = activeEthInterfaces.find(ethInterface.name);
+        if (it == activeEthInterfaces.end()) {
+            LOG_ERROR("Interface " << ethInterface.name << " not found in active interfaces");
+            return;
+        }
 
-        ActiveEthInterface& activeIf = activeEthInterfaces.find(ethInterface.name)->second;
+        ActiveEthInterface& activeIf = it->second;
 
-        if (activeIf.ifData.ipv4 != ethInterface.ipv4 || std::memcmp(activeIf.ifData.ipv6, ethInterface.ipv6, 16) != 0) {
-            LOG_INFO("IP address change detected on " << ethInterface.name);
+        /* check if any interface attribute has changed */
+        bool ifindex_changed = (activeIf.ifData.ifindex != ethInterface.ifindex);
+        bool mac_changed = (std::memcmp(activeIf.ifData.mac, ethInterface.mac, MAC_ADDR_LEN) != 0);
+        bool ipv4_changed = (activeIf.ifData.ipv4 != ethInterface.ipv4);
+        bool ipv6_changed = (std::memcmp(activeIf.ifData.ipv6, ethInterface.ipv6, 16) != 0);
 
-            activeIf.ifData.ipv4 = ethInterface.ipv4;
-            std::memcpy(activeIf.ifData.ipv6, ethInterface.ipv6, 16);
+        if (ifindex_changed || mac_changed || ipv4_changed || ipv6_changed) {
+            if (ifindex_changed || mac_changed) {
+                LOG_WARN("Critical interface change on " << ethInterface.name << " - recreating socket");
+                close(activeIf.sockfd);
+
+                int sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_NEIGHBOR_DISC));
+                if (sockfd < 0) {
+                    LOG_ERROR("Failed to create socket: " << strerror(errno));
+                    activeEthInterfaces.erase(it);
+                    return;
+                }
+
+                struct sockaddr_ll addr{};
+                addr.sll_family = AF_PACKET;
+                addr.sll_ifindex = ethInterface.ifindex;
+                addr.sll_protocol = htons(ETH_P_NEIGHBOR_DISC);
+
+                if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+                    LOG_ERROR("Failed to bind: " << strerror(errno));
+                    close(sockfd);
+                    activeEthInterfaces.erase(it);
+                    return;
+                }
+
+                activeIf.sockfd = sockfd;
+                activeIf.ifData.ifindex = ethInterface.ifindex;
+                std::memcpy(activeIf.ifData.mac, ethInterface.mac, MAC_ADDR_LEN);
+            }
+
+            if (ipv4_changed || ipv6_changed) {
+                LOG_INFO("IP address change detected on " << ethInterface.name);
+                activeIf.ifData.ipv4 = ethInterface.ipv4;
+                std::memcpy(activeIf.ifData.ipv6, ethInterface.ipv6, sizeof(activeIf.ifData.ipv6));
+            }
+
             frame::build(activeIf.send_frame, activeIf.ifData.mac, activeIf.ifData.ipv4, activeIf.ifData.ipv6);
         }
     }

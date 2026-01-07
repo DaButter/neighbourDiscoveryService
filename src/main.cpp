@@ -28,7 +28,7 @@ int main() {
             interfaces::checkAndUpdate();
 
             if (interfaces::activeEthInterfaces.empty()) {
-                LOG_INFO("No active Ethernet interfaces found, skipping send");
+                LOG_WARN("No active Ethernet interfaces found, skipping send");
                 last_send_time = now;
                 continue;
             }
