@@ -3,6 +3,14 @@
 namespace interfaces {
     std::unordered_map<std::string, ActiveEthInterface> activeEthInterfaces;
 
+    bool hasIPv6(const uint8_t* ipv6) {
+        for (int i = 0; i < 16; ++i) {
+           if (ipv6[i] != 0) {
+               return true;
+           }
+        }
+        return false;
+    }
 
     std::unordered_map<std::string, EthInterface> discover() {
         std::unordered_map<std::string, EthInterface> ethInterfaces;
@@ -39,6 +47,7 @@ namespace interfaces {
 
                 /* network layer - get ipv4 address */
                 case AF_INET: {
+                    if (iface.ipv4 != 0) break;
                     struct sockaddr_in* addr_in = (struct sockaddr_in*)ifa->ifa_addr;
                     iface.ipv4 = addr_in->sin_addr.s_addr;
                     break;
@@ -46,6 +55,7 @@ namespace interfaces {
 
                 /* network layer - get ipv6 address */
                 case AF_INET6: {
+                    if (hasIPv6(iface.ipv6)) break;
                     struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)ifa->ifa_addr;
                     if (!IN6_IS_ADDR_LINKLOCAL(&addr_in6->sin6_addr)) {
                         std::memcpy(iface.ipv6, addr_in6->sin6_addr.s6_addr, 16);
@@ -60,7 +70,7 @@ namespace interfaces {
 
         freeifaddrs(ifaddr);
 
-        // in case we got interfaces with no AF_PACKET for some reason (virtual interfaces?) - remove them
+        // in case we got interfaces with no AF_PACKET for some reason - remove them
         for (auto it = ethInterfaces.begin(); it != ethInterfaces.end(); ) {
             if (it->second.ifindex == 0) {
                 it = ethInterfaces.erase(it);
