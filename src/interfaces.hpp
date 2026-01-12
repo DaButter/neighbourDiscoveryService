@@ -41,7 +41,7 @@ namespace interfaces {
     extern std::unordered_map<std::string, ActiveEthInterface> activeEthInterfaces;
 
     std::unordered_map<std::string, EthInterface> discover();
-    void add(const std::string& ifname);
-    void update(const EthInterface& ethInterface);
-    void checkAndUpdate();
+    void add(const EthInterface& ethInterface, const uint8_t* machineId);
+    void update(const EthInterface& ethInterface, const uint8_t* machineId);
+    void checkAndUpdate(const uint8_t* machineId);
 }

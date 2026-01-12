@@ -5,8 +5,16 @@
 int main() {
     LOG_INFO("Neighbor Discovery Service starting...");
 
+    /* get machine UID */
+    uint8_t machineId[MACHINE_ID_LEN];
+    if (!utils::getMachineId(machineId)) {
+        LOG_ERROR("Failed to get machine ID, exiting");
+        return 1;
+    }
+    LOG_INFO("Machine ID: " << debug::machineIdToString(machineId));
+
     /* initial interface discovery */
-    interfaces::checkAndUpdate();
+    interfaces::checkAndUpdate(machineId);
     if (interfaces::activeEthInterfaces.empty()) {
         LOG_ERROR("No active Ethernet interfaces found!");
         return 1;
@@ -25,7 +33,7 @@ int main() {
 
         /* check interfaces and send */
         if (now - last_send_time >= SEND_INTERVAL_SEC) {
-            interfaces::checkAndUpdate();
+            interfaces::checkAndUpdate(machineId);
 
             if (interfaces::activeEthInterfaces.empty()) {
                 LOG_WARN("No active Ethernet interfaces found, skipping send");

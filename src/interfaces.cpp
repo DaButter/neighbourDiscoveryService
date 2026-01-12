@@ -72,7 +72,7 @@ namespace interfaces {
         return ethInterfaces;
     }
 
-    void update(const EthInterface& ethInterface) {
+    void update(const EthInterface& ethInterface, const uint8_t* machineId) {
         auto it = activeEthInterfaces.find(ethInterface.name);
         if (it == activeEthInterfaces.end()) {
             LOG_ERROR("Interface " << ethInterface.name << " not found in active interfaces");
@@ -122,14 +122,14 @@ namespace interfaces {
                 std::memcpy(activeIf.ifData.ipv6, ethInterface.ipv6, sizeof(activeIf.ifData.ipv6));
             }
 
-            frame::build(activeIf.send_frame, activeIf.ifData.mac, activeIf.ifData.ipv4, activeIf.ifData.ipv6);
+            frame::build(activeIf.send_frame, activeIf.ifData.mac, machineId, activeIf.ifData.ipv4, activeIf.ifData.ipv6);
         }
     }
 
-    void add(const EthInterface& ethInterface) {
+    void add(const EthInterface& ethInterface, const uint8_t* machineId) {
         // check if interface already monitored
         if (activeEthInterfaces.count(ethInterface.name) > 0) {
-            update(ethInterface);
+            update(ethInterface, machineId);
             return;
         }
 
@@ -165,7 +165,7 @@ namespace interfaces {
         if (ethInterface.hasIPv6())  std::memcpy(activeIfData.ifData.ipv6, ethInterface.ipv6, 16);
 
         // build ethernet frame
-        frame::build(activeIfData.send_frame, activeIfData.ifData.mac, activeIfData.ifData.ipv4, activeIfData.ifData.ipv6);
+        frame::build(activeIfData.send_frame, activeIfData.ifData.mac, machineId, activeIfData.ifData.ipv4, activeIfData.ifData.ipv6);
 
         // prebuild send address
         activeIfData.send_addr.sll_family = AF_PACKET;
@@ -180,12 +180,12 @@ namespace interfaces {
         debug::printMAC(activeIfData.ifData.mac);
     }
 
-    void checkAndUpdate() {
+    void checkAndUpdate(const uint8_t* machineId) {
         std::unordered_map<std::string, EthInterface> allEthInterfaces = discover();
 
         // add new interfaces or update existing ones
         for (const auto& [ifname, ethInterface] : allEthInterfaces) {
-            add(ethInterface);
+            add(ethInterface, machineId);
         }
 
         // remove interfaces no longer present (down or disappeared)

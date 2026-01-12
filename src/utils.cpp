@@ -1,21 +1,5 @@
 #include "utils.hpp"
 
-std::string getTimestamp() {
-    struct timeval tv;
-    gettimeofday(&tv, nullptr);
-
-    time_t now = tv.tv_sec;
-    struct tm* tm_info = localtime(&now);
-
-    char buffer[32];
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info);
-
-    char timestamp[64];
-    snprintf(timestamp, sizeof(timestamp), "%s.%06ld", buffer, tv.tv_usec);
-
-    return std::string(timestamp);
-}
-
 namespace debug {
     void printMAC(const uint8_t* mac) {
         std::cout << "Source MAC: ";
@@ -75,10 +59,19 @@ namespace debug {
     std::string macToString(const uint8_t* mac) {
         return std::string(reinterpret_cast<const char*>(mac), MAC_ADDR_LEN);
     }
+
+    std::string machineIdToString(const uint8_t* machineId) {
+        std::string result;
+        result.reserve(MACHINE_ID_LEN);
+        for (std::size_t i = 0; i < MACHINE_ID_LEN; ++i) {
+            result += static_cast<char>(machineId[i]);
+        }
+        return result;
+    }
 }
 
 namespace frame {
-    void build(uint8_t* frame, const uint8_t* srcMac, const uint32_t& ipv4, const uint8_t* ipv6) {
+    void build(uint8_t* frame, const uint8_t* srcMac, const uint8_t* machineId, const uint32_t& ipv4, const uint8_t* ipv6) {
 
         std::memcpy(frame, broadcastMac, MAC_ADDR_LEN);           // destination MAC
         std::memcpy(frame + MAC_ADDR_LEN, srcMac, MAC_ADDR_LEN);  // source MAC
@@ -87,9 +80,48 @@ namespace frame {
         frame[ETH_TYPE_OFFSET + 1] = (ETH_P_NEIGHBOR_DISC) & 0xff;
 
         NeighborPayload hostData{};
-        hostData.ipv4 = ipv4;
+        std::memcpy(hostData.machineId, machineId, MACHINE_ID_LEN);
+        hostData.ipv4 = htonl(ipv4);
         std::memcpy(hostData.ipv6, ipv6, sizeof(hostData.ipv6));
 
         std::memcpy(frame + PAYLOAD_OFFSET, &hostData, sizeof(hostData));
     }
+}
+
+namespace utils {
+    std::string getTimestamp() {
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+
+        time_t now = tv.tv_sec;
+        struct tm* tm_info = localtime(&now);
+
+        char buffer[32];
+        strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info);
+
+        char timestamp[64];
+        snprintf(timestamp, sizeof(timestamp), "%s.%06ld", buffer, tv.tv_usec);
+
+        return std::string(timestamp);
+    }
+
+    bool getMachineId(uint8_t* output) {
+        std::ifstream file("/etc/machine-id");
+        if (!file.is_open()) {
+            LOG_ERROR("Failed to open /etc/machine-id");
+            return false;
+        }
+
+        std::string machineId;
+        std::getline(file, machineId);
+
+        if (machineId.length() < MACHINE_ID_LEN) {
+            LOG_ERROR("Invalid machine ID length");
+            return false;
+        }
+
+        std::memcpy(output, machineId.data(), MACHINE_ID_LEN);
+        return true;
+    }
+
 }
