@@ -44,7 +44,7 @@ namespace debug {
 
         /* print IPv4 */
         struct in_addr ipv4_addr;
-        ipv4_addr.s_addr = payload->ipv4;
+        ipv4_addr.s_addr = ntohl(payload->ipv4);
         std::cout << "Received from IPv4: " << inet_ntoa(ipv4_addr) << " IPv6: ";
 
         /* print IPv6 */

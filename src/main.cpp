@@ -1,6 +1,7 @@
 #include "utils.hpp"
 #include "interfaces.hpp"
 #include "neighbors.hpp"
+#include "cli/ipc.hpp"
 
 int main() {
     LOG_INFO("Neighbor Discovery Service starting...");
@@ -13,6 +14,12 @@ int main() {
     }
     LOG_INFO("Machine ID: " << debug::machineIdToString(machineId));
 
+    /* initialize IPC server */
+    if (!ipc::initServer()) {
+        LOG_ERROR("Failed to initialize IPC server");
+        return 1;
+    }
+
     /* initial interface discovery */
     interfaces::checkAndUpdate(machineId);
     if (interfaces::activeEthInterfaces.empty()) {
@@ -22,7 +29,7 @@ int main() {
 
     const int SEND_INTERVAL_SEC = 5;
     time_t last_send_time = 0;
-    uint8_t recvBuf[PAYLOAD_OFFSET + sizeof(NeighborPayload)]; // for now like this, but will need to handle multiple IPs later
+    uint8_t recvBuf[PAYLOAD_OFFSET + sizeof(NeighborPayload)];
 
     LOG_INFO("Service running on " << interfaces::activeEthInterfaces.size() << " interface(s)");
 
@@ -30,6 +37,9 @@ int main() {
     while (true) {
         time_t now = time(nullptr);
         neighbor::checkTimeout(now);
+
+        /* check IPC clients */
+        ipc::checkClients();
 
         /* check interfaces and send */
         if (now - last_send_time >= SEND_INTERVAL_SEC) {
@@ -88,6 +98,11 @@ int main() {
             continue;
         }
 
+        /* check IPC clients */
+        if (ipc::server_fd >= 0 && FD_ISSET(ipc::server_fd, &readfds)) {
+            ipc::checkClients();
+        }
+
         /* check which sockets have data */
         /* this reads packets one by one for each interface - will need to consider optimizing + think if kernel inBuf is not dropping packets for 10 000 neighbors */
         /* quite bad tbh */
@@ -110,6 +125,7 @@ int main() {
     for (auto& [ifname, ethInterface] : interfaces::activeEthInterfaces) {
         close(ethInterface.sockfd);
     }
+    ipc::cleanup();
 
     return 0;
 }
