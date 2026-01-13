@@ -7,7 +7,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <fstream>
-#include "common.hpp"
+#include "../common.hpp"
 
 namespace utils {
     std::string getTimestamp();

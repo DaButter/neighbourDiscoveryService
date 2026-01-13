@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 #include <netpacket/packet.h>
 #include <unistd.h>
-#include "common.hpp"
+#include "../common.hpp"
 #include "utils.hpp"
 
 struct EthInterface {

@@ -4,7 +4,12 @@
 #include <sys/un.h>
 #include <string>
 #include <net/if.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <cstring>
 
+#include "../utils/utils.hpp"
+#include "../protocol/neighbors.hpp"
 #include "../common.hpp"
 
 inline constexpr const char* SOCKET_PATH = "/tmp/neighbor_discovery.sock";

@@ -1,7 +1,7 @@
-#include "utils.hpp"
-#include "interfaces.hpp"
-#include "neighbors.hpp"
-#include "cli/ipc.hpp"
+#include "utils/utils.hpp"
+#include "utils/interfaces.hpp"
+#include "protocol/neighbors.hpp"
+#include "ipc/server.hpp"
 
 int main() {
     LOG_INFO("Neighbor Discovery Service starting...");

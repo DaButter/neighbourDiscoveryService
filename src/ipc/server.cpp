@@ -1,9 +1,4 @@
-#include "ipc.hpp"
-#include "../neighbors.hpp"
-#include "../utils.hpp"
-#include <unistd.h>
-#include <fcntl.h>
-#include <cstring>
+#include "server.hpp"
 
 namespace ipc {
     int server_fd = -1;

@@ -4,8 +4,8 @@
 #include <cstring>
 #include <string>
 #include <net/if.h>
-#include "common.hpp"
-#include "utils.hpp"
+#include "../common.hpp"
+#include "../utils/utils.hpp"
 
 // think about using std::optional for ipv4 and ipv6 addresses
 struct Connection {

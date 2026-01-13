@@ -1,10 +1,10 @@
-#include "ipc.hpp"
-#include "../common.hpp"
+#include "common.hpp"
 #include <iostream>
 #include <iomanip>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <cstring>
+#include "ipc/server.hpp"
 
 void printIPv4(uint32_t ipv4) {
     if (ipv4 == 0) {
