@@ -12,7 +12,6 @@ int main() {
         LOG_ERROR("Failed to get machine ID, exiting");
         return 1;
     }
-    LOG_INFO("Machine ID: " << debug::machineIdToString(machineId));
 
     /* initialize IPC server */
     if (!ipc::initServer()) {
@@ -116,7 +115,6 @@ int main() {
 
                 /* while processing packets, other packets may arrive - they will be inBufed by kernel in a queue */
                 /* receive inBuf is small: 212992 bytes on my machine */
-                debug::printFrameData(recvBuf);
                 neighbor::store(recvBuf, ifname.c_str());
             }
         }

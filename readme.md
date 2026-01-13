@@ -6,7 +6,7 @@ ETH_P_NEIGHBOR_DISC = 0x88B5
 
 TODO list:
 
-1. CODE CLEANUP, check comments. rearrange project files + upd makefile
+1. CODE CLEANUP, check comments
 
 2. Think about if this will work fine with 10 000 neighbours, optimize stuff in code. check out select() and poll() calls. Think about cache limits
 

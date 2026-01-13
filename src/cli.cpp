@@ -1,52 +1,11 @@
-#include "common.hpp"
 #include <iostream>
 #include <iomanip>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <cstring>
+#include "common.hpp"
 #include "ipc/server.hpp"
-
-void printIPv4(uint32_t ipv4) {
-    if (ipv4 == 0) {
-        std::cout << "none";
-    } else {
-        struct in_addr addr;
-        addr.s_addr = ipv4;
-        std::cout << inet_ntoa(addr);
-    }
-}
-
-void printIPv6(const uint8_t* ipv6) {
-    bool has_ipv6 = false;
-    for (int i = 0; i < 16; ++i) {
-        if (ipv6[i] != 0) {
-            has_ipv6 = true;
-            break;
-        }
-    }
-
-    if (!has_ipv6) {
-        std::cout << "none";
-    } else {
-        for (int i = 0; i < 16; i += 2) {
-            std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)ipv6[i]
-                      << std::setw(2) << (int)ipv6[i+1];
-            if (i < 14) std::cout << ":";
-        }
-        std::cout << std::dec;
-    }
-}
-
-void printMAC(const uint8_t* mac) {
-    std::cout << std::hex << std::setfill('0')
-              << std::setw(2) << (int)mac[0] << ":"
-              << std::setw(2) << (int)mac[1] << ":"
-              << std::setw(2) << (int)mac[2] << ":"
-              << std::setw(2) << (int)mac[3] << ":"
-              << std::setw(2) << (int)mac[4] << ":"
-              << std::setw(2) << (int)mac[5]
-              << std::dec;
-}
+#include "utils/utils.hpp"
 
 int main() {
     int sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -91,13 +50,13 @@ int main() {
             std::cout << "\n  Connection " << (j + 1) << ":\n";
             std::cout << "\tLocal interface: " << conn.localIfName << '\n';
             std::cout << "\tRemote MAC:      ";
-            printMAC(conn.remoteMac);
+            utils::printMAC(conn.remoteMac);
             std::cout << '\n';
             std::cout << "\tRemote IPv4:     ";
-            printIPv4(conn.remoteIpv4);
+            utils::printIPv4(conn.remoteIpv4);
             std::cout << '\n';
             std::cout << "\tRemote IPv6:     ";
-            printIPv6(conn.remoteIpv6);
+            utils::printIPv6(conn.remoteIpv6);
             std::cout << '\n';
         }
     }

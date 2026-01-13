@@ -187,7 +187,7 @@ namespace interfaces {
         activeEthInterfaces[activeIfData.ifData.name] = activeIfData;
 
         LOG_INFO("Monitoring interface: " << activeIfData.ifData.name << " MAC: ");
-        debug::printMAC(activeIfData.ifData.mac);
+        utils::printMAC(activeIfData.ifData.mac);
     }
 
     void checkAndUpdate(const uint8_t* machineId) {
