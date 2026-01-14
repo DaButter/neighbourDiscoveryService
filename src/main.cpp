@@ -21,7 +21,7 @@ int main() {
 
     /* initial interface discovery */
     interfaces::checkAndUpdate(machineId);
-    if (interfaces::activeEthInterfaces.empty()) {
+    if (interfaces::monitoredEthInterfaces.empty()) {
         LOG_ERROR("No active Ethernet interfaces found!");
         return 1;
     }
@@ -30,7 +30,7 @@ int main() {
     time_t last_send_time = 0;
     uint8_t recvBuf[PAYLOAD_OFFSET + sizeof(NeighborPayload)];
 
-    LOG_INFO("Service running on " << interfaces::activeEthInterfaces.size() << " interface(s)");
+    LOG_INFO("Service running on " << interfaces::monitoredEthInterfaces.size() << " interface(s)");
 
     /* main loop */
     while (true) {
@@ -44,13 +44,13 @@ int main() {
         if (now - last_send_time >= SEND_INTERVAL_SEC) {
             interfaces::checkAndUpdate(machineId);
 
-            if (interfaces::activeEthInterfaces.empty()) {
+            if (interfaces::monitoredEthInterfaces.empty()) {
                 LOG_WARN("No active Ethernet interfaces found, skipping send");
                 last_send_time = now;
                 continue;
             }
 
-            for (auto& [ifname, ethInterface] : interfaces::activeEthInterfaces) {
+            for (auto& [ifname, ethInterface] : interfaces::monitoredEthInterfaces) {
                 ssize_t sent = sendto(ethInterface.sockfd,
                                       ethInterface.send_frame,
                                       sizeof(ethInterface.send_frame),
@@ -76,10 +76,18 @@ int main() {
         FD_ZERO(&readfds);
         int max_fd = 0;
 
-        for (const auto& [ifname, ethInterface] : interfaces::activeEthInterfaces) {
+        for (const auto& [ifname, ethInterface] : interfaces::monitoredEthInterfaces) {
             FD_SET(ethInterface.sockfd, &readfds);
             if (ethInterface.sockfd > max_fd) {
                 max_fd = ethInterface.sockfd;
+            }
+        }
+
+        // add IPC server socket
+        if (ipc::server_fd >= 0) {
+            FD_SET(ipc::server_fd, &readfds);
+            if (ipc::server_fd > max_fd) {
+                max_fd = ipc::server_fd;
             }
         }
 
@@ -97,7 +105,6 @@ int main() {
             continue;
         }
 
-        /* check IPC clients */
         if (ipc::server_fd >= 0 && FD_ISSET(ipc::server_fd, &readfds)) {
             ipc::checkClients();
         }
@@ -105,7 +112,7 @@ int main() {
         /* check which sockets have data */
         /* this reads packets one by one for each interface - will need to consider optimizing + think if kernel inBuf is not dropping packets for 10 000 neighbors */
         /* quite bad tbh */
-        for (auto& [ifname, ethInterface] : interfaces::activeEthInterfaces) {
+        for (auto& [ifname, ethInterface] : interfaces::monitoredEthInterfaces) {
             if (FD_ISSET(ethInterface.sockfd, &readfds)) {
                 ssize_t n = recv(ethInterface.sockfd, recvBuf, sizeof(recvBuf), 0); // MSG_DONTWAIT?
                 if (n <= 0) {
@@ -120,7 +127,7 @@ int main() {
         }
     }
 
-    for (auto& [ifname, ethInterface] : interfaces::activeEthInterfaces) {
+    for (auto& [ifname, ethInterface] : interfaces::monitoredEthInterfaces) {
         close(ethInterface.sockfd);
     }
     ipc::cleanup();

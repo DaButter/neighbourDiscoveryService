@@ -12,9 +12,14 @@ namespace ipc {
             return false;
         }
 
-        // set non-blocking
+        // set non-blocking flag
         int flags = fcntl(server_fd, F_GETFL, 0);
-        fcntl(server_fd, F_SETFL, flags | O_NONBLOCK);
+        if (flags < 0 || fcntl(server_fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+            LOG_ERROR("Failed to set non-blocking: " << strerror(errno));
+            close(server_fd);
+            server_fd = -1;
+            return false;
+        }
 
         struct sockaddr_un addr{};
         addr.sun_family = AF_UNIX;
@@ -27,7 +32,7 @@ namespace ipc {
             return false;
         }
 
-        if (listen(server_fd, MAX_CLIENTS) < 0) {
+        if (listen(server_fd, 5) < 0) {
             LOG_ERROR("Failed to listen on IPC socket: " << strerror(errno));
             close(server_fd);
             server_fd = -1;
@@ -38,7 +43,7 @@ namespace ipc {
         return true;
     }
 
-    void handleClient(int client_fd) {
+    static void handleClient(int client_fd) {
         // send neighbor count
         uint32_t neighborCount = neighbor::neighbors.size();
         send(client_fd, &neighborCount, sizeof(neighborCount), 0);

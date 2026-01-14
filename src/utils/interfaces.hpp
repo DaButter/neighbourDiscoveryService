@@ -28,17 +28,16 @@ struct EthInterface {
     }
 };
 
-struct ActiveEthInterface {
+struct MonitoredEthInterface {
     EthInterface ifData;
     int sockfd;
     uint8_t send_frame[PAYLOAD_OFFSET + sizeof(NeighborPayload)];
-    struct sockaddr_ll send_addr = {};
+    struct sockaddr_ll send_addr{};
 };
 
 
 namespace interfaces {
-    // map of active ethernet interfaces being monitored
-    extern std::unordered_map<std::string, ActiveEthInterface> activeEthInterfaces;
+    extern std::unordered_map<std::string, MonitoredEthInterface> monitoredEthInterfaces;
 
     std::unordered_map<std::string, EthInterface> discover();
     void add(const EthInterface& ethInterface, const uint8_t* machineId);

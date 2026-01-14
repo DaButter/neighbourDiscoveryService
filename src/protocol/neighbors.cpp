@@ -8,8 +8,6 @@ namespace neighbor {
         const uint8_t* srcMac = buffer + MAC_ADDR_LEN;
         const NeighborPayload* payload = reinterpret_cast<const NeighborPayload*>(buffer + PAYLOAD_OFFSET);
 
-        // esxtract device ID from payload (32 hex chars)
-        // std::string machineId(payload->machineId, MACHINE_ID_LEN);
         std::string machineId(reinterpret_cast<const char*>(payload->machineId), MACHINE_ID_LEN);
 
         // get or create neighbor entry

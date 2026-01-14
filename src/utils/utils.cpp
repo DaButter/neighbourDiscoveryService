@@ -1,13 +1,13 @@
 #include "utils.hpp"
 
 namespace frame {
+    // build Ethernet frame: [Dst MAC (6)] [Src MAC (6)] [EtherType (2)] [Payload (52)]
     void build(uint8_t* frame, const uint8_t* srcMac, const uint8_t* machineId, const uint32_t& ipv4, const uint8_t* ipv6) {
+        std::memcpy(frame, broadcastMac, MAC_ADDR_LEN);
+        std::memcpy(frame + MAC_ADDR_LEN, srcMac, MAC_ADDR_LEN);
 
-        std::memcpy(frame, broadcastMac, MAC_ADDR_LEN);           // destination MAC
-        std::memcpy(frame + MAC_ADDR_LEN, srcMac, MAC_ADDR_LEN);  // source MAC
-
-        frame[ETH_TYPE_OFFSET] = (ETH_P_NEIGHBOR_DISC >> 8) & 0xff;
-        frame[ETH_TYPE_OFFSET + 1] = (ETH_P_NEIGHBOR_DISC) & 0xff;
+        uint16_t ethertype = htons(ETH_P_NEIGHBOR_DISC);
+        std::memcpy(frame + ETH_TYPE_OFFSET, &ethertype, sizeof(ethertype));
 
         NeighborPayload hostData{};
         std::memcpy(hostData.machineId, machineId, MACHINE_ID_LEN);
@@ -19,22 +19,6 @@ namespace frame {
 }
 
 namespace utils {
-    std::string getTimestamp() {
-        struct timeval tv;
-        gettimeofday(&tv, nullptr);
-
-        time_t now = tv.tv_sec;
-        struct tm* tm_info = localtime(&now);
-
-        char buffer[32];
-        strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info);
-
-        char timestamp[64];
-        snprintf(timestamp, sizeof(timestamp), "%s.%06ld", buffer, tv.tv_usec);
-
-        return std::string(timestamp);
-    }
-
     bool getMachineId(uint8_t* output) {
         std::ifstream file("/etc/machine-id");
         if (!file.is_open()) {
@@ -45,8 +29,8 @@ namespace utils {
         std::string machineId;
         std::getline(file, machineId);
 
-        if (machineId.length() < MACHINE_ID_LEN) {
-            LOG_ERROR("Invalid machine ID length");
+        if (machineId.length() != MACHINE_ID_LEN) {
+            LOG_ERROR("Invalid machine ID length: " << machineId.length());
             return false;
         }
 
@@ -94,5 +78,21 @@ namespace utils {
                   << std::setw(2) << (int)mac[4] << ":"
                   << std::setw(2) << (int)mac[5]
                   << std::dec;
+    }
+
+    std::string getTimestamp() {
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+
+        time_t now = tv.tv_sec;
+        struct tm* tm_info = localtime(&now);
+
+        char buffer[32];
+        strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info);
+
+        char timestamp[64];
+        snprintf(timestamp, sizeof(timestamp), "%s.%06ld", buffer, tv.tv_usec);
+
+        return std::string(timestamp);
     }
 }

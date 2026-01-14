@@ -13,7 +13,6 @@
 #include "../common.hpp"
 
 inline constexpr const char* SOCKET_PATH = "/tmp/neighbor_discovery.sock";
-inline constexpr int MAX_CLIENTS = 5; // is this needed?
 
 struct NeighborInfo {
     char machineId[MACHINE_ID_LEN];
@@ -30,7 +29,6 @@ struct ConnectionInfo {
 namespace ipc {
     extern int server_fd;
     bool initServer();
-    void handleClient(int client_fd);
     void checkClients();
     void cleanup();
 }
