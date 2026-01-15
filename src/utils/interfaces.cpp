@@ -3,13 +3,15 @@
 namespace interfaces {
     std::unordered_map<std::string, MonitoredEthInterface> monitoredEthInterfaces;
 
-    std::unordered_map<std::string, EthInterface> discover() {
-        std::unordered_map<std::string, EthInterface> ethInterfaces;
+    static const std::unordered_map<std::string, EthInterface>& discover() {
+        static std::unordered_map<std::string, EthInterface> discoveredInterfaces;
+        discoveredInterfaces.clear();
+
         struct ifaddrs* ifaddr;
 
         if (getifaddrs(&ifaddr) == -1) {
             LOG_ERROR("getifaddrs() failed: " << strerror(errno));
-            return ethInterfaces;
+            return discoveredInterfaces;
         }
 
         for (struct ifaddrs* ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
@@ -20,7 +22,7 @@ namespace interfaces {
             std::string ifname = ifa->ifa_name;
             if (ifname == "lo") continue;
 
-            EthInterface& iface = ethInterfaces[ifname];
+            EthInterface& iface = discoveredInterfaces[ifname];
             iface.name = ifname;
 
             switch (ifa->ifa_addr->sa_family) {
@@ -58,15 +60,15 @@ namespace interfaces {
         freeifaddrs(ifaddr);
 
         // in case interface has no link layer data, remove it
-        for (auto it = ethInterfaces.begin(); it != ethInterfaces.end(); ) {
+        for (auto it = discoveredInterfaces.begin(); it != discoveredInterfaces.end(); ) {
             if (it->second.ifindex == 0) {
-                it = ethInterfaces.erase(it);
+                it = discoveredInterfaces.erase(it);
             } else {
                 ++it;
             }
         }
 
-        return ethInterfaces;
+        return discoveredInterfaces;
     }
 
     static int createAndBindSocket(const EthInterface& ethInterface) {
@@ -96,76 +98,73 @@ namespace interfaces {
         return sockfd;
     }
 
-    void update(const EthInterface& ethInterface, const uint8_t* machineId) {
+    static void addOrUpdate(const EthInterface& ethInterface, const uint8_t* machineId) {
         auto it = monitoredEthInterfaces.find(ethInterface.name);
-        MonitoredEthInterface& monitoredIf = it->second;
 
-        // check if any interface attribute has changed
-        bool ifindex_changed = (monitoredIf.ifData.ifindex != ethInterface.ifindex);
-        bool mac_changed = (std::memcmp(monitoredIf.ifData.mac, ethInterface.mac, MAC_ADDR_LEN) != 0);
-        bool ipv4_changed = (monitoredIf.ifData.ipv4 != ethInterface.ipv4);
-        bool ipv6_changed = (std::memcmp(monitoredIf.ifData.ipv6, ethInterface.ipv6, 16) != 0);
+        if (it != monitoredEthInterfaces.end()) {
+            // update existing interface
+            MonitoredEthInterface& monitoredIf = it->second;
 
-        if (ifindex_changed || mac_changed || ipv4_changed || ipv6_changed) {
-            if (ifindex_changed || mac_changed) {
-                LOG_WARN("Critical interface change on " << ethInterface.name << " - recreating socket");
-                close(monitoredIf.sockfd);
+            bool ifindex_changed = (monitoredIf.ifData.ifindex != ethInterface.ifindex);
+            bool mac_changed = (std::memcmp(monitoredIf.ifData.mac, ethInterface.mac, MAC_ADDR_LEN) != 0);
+            bool ipv4_changed = (monitoredIf.ifData.ipv4 != ethInterface.ipv4);
+            bool ipv6_changed = (std::memcmp(monitoredIf.ifData.ipv6, ethInterface.ipv6, 16) != 0);
 
-                int sockfd = createAndBindSocket(ethInterface);
-                if (sockfd < 0) {
-                    monitoredEthInterfaces.erase(it);
-                    return;
+            if (ifindex_changed || mac_changed || ipv4_changed || ipv6_changed) {
+                if (ifindex_changed || mac_changed) {
+                    LOG_WARN("Critical interface change on " << ethInterface.name << " - recreating socket");
+                    close(monitoredIf.sockfd);
+
+                    int sockfd = createAndBindSocket(ethInterface);
+                    if (sockfd < 0) {
+                        monitoredEthInterfaces.erase(it);
+                        return;
+                    }
+
+                    monitoredIf.sockfd = sockfd;
+                    monitoredIf.ifData.ifindex = ethInterface.ifindex;
+                    std::memcpy(monitoredIf.ifData.mac, ethInterface.mac, MAC_ADDR_LEN);
                 }
 
-                monitoredIf.sockfd = sockfd;
-                monitoredIf.ifData.ifindex = ethInterface.ifindex;
-                std::memcpy(monitoredIf.ifData.mac, ethInterface.mac, MAC_ADDR_LEN);
+                if (ipv4_changed) monitoredIf.ifData.ipv4 = ethInterface.ipv4;
+                if (ipv6_changed) std::memcpy(monitoredIf.ifData.ipv6, ethInterface.ipv6, 16);
+
+                frame::build(monitoredIf.send_frame, monitoredIf.ifData.mac, machineId,
+                             monitoredIf.ifData.ipv4, monitoredIf.ifData.ipv6);
             }
+        } else {
+            // add new interface
+            int sockfd = createAndBindSocket(ethInterface);
+            if (sockfd < 0) return;
 
-            if (ipv4_changed) monitoredIf.ifData.ipv4 = ethInterface.ipv4;
-            if (ipv6_changed) std::memcpy(monitoredIf.ifData.ipv6, ethInterface.ipv6, 16);
+            MonitoredEthInterface monitoredIfData{};
+            monitoredIfData.sockfd = sockfd;
+            monitoredIfData.ifData.name = ethInterface.name;
+            monitoredIfData.ifData.ifindex = ethInterface.ifindex;
+            std::memcpy(monitoredIfData.ifData.mac, ethInterface.mac, MAC_ADDR_LEN);
 
-            frame::build(monitoredIf.send_frame, monitoredIf.ifData.mac, machineId, monitoredIf.ifData.ipv4, monitoredIf.ifData.ipv6);
+            if (ethInterface.hasIPv4()) monitoredIfData.ifData.ipv4 = ethInterface.ipv4;
+            if (ethInterface.hasIPv6()) std::memcpy(monitoredIfData.ifData.ipv6, ethInterface.ipv6, 16);
+
+            frame::build(monitoredIfData.send_frame, monitoredIfData.ifData.mac, machineId,
+                         monitoredIfData.ifData.ipv4, monitoredIfData.ifData.ipv6);
+
+            monitoredIfData.send_addr.sll_family = AF_PACKET;
+            monitoredIfData.send_addr.sll_ifindex = ethInterface.ifindex;
+            monitoredIfData.send_addr.sll_halen = MAC_ADDR_LEN;
+            std::memcpy(monitoredIfData.send_addr.sll_addr, broadcastMac, MAC_ADDR_LEN);
+
+            monitoredEthInterfaces[ethInterface.name] = monitoredIfData;
+            LOG_INFO("Added interface: " << ethInterface.name);
         }
-    }
-
-    void add(const EthInterface& ethInterface, const uint8_t* machineId) {
-        if (monitoredEthInterfaces.count(ethInterface.name) > 0) {
-            update(ethInterface, machineId);
-            return;
-        }
-
-        int sockfd = createAndBindSocket(ethInterface);
-        if (sockfd < 0) return;
-
-        // init monitored interface
-        MonitoredEthInterface monitoredIfData{};
-        monitoredIfData.sockfd = sockfd;
-        monitoredIfData.ifData.name = ethInterface.name;
-        monitoredIfData.ifData.ifindex = ethInterface.ifindex;
-        std::memcpy(monitoredIfData.ifData.mac, ethInterface.mac, MAC_ADDR_LEN);
-
-        if (ethInterface.hasIPv4()) monitoredIfData.ifData.ipv4 = ethInterface.ipv4;
-        if (ethInterface.hasIPv6()) std::memcpy(monitoredIfData.ifData.ipv6, ethInterface.ipv6, 16);
-
-        // prebuild eth frame for sending
-        frame::build(monitoredIfData.send_frame, monitoredIfData.ifData.mac, machineId, monitoredIfData.ifData.ipv4, monitoredIfData.ifData.ipv6);
-
-        // prebuild destination address struct
-        monitoredIfData.send_addr.sll_family = AF_PACKET;
-        monitoredIfData.send_addr.sll_ifindex = ethInterface.ifindex;
-        monitoredIfData.send_addr.sll_halen = MAC_ADDR_LEN;
-        std::memcpy(monitoredIfData.send_addr.sll_addr, broadcastMac, MAC_ADDR_LEN);
-
-        monitoredEthInterfaces[monitoredIfData.ifData.name] = monitoredIfData;
     }
 
     void checkAndUpdate(const uint8_t* machineId) {
-        std::unordered_map<std::string, EthInterface> allEthInterfaces = discover();
+        const auto& allEthInterfaces = discover();
 
         // add new interfaces or update existing ones
         for (const auto& [ifname, ethInterface] : allEthInterfaces) {
-            add(ethInterface, machineId);
+            addOrUpdate(ethInterface, machineId);
         }
 
         // remove interfaces no longer present

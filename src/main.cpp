@@ -16,6 +16,7 @@ int main() {
     /* initialize IPC server */
     if (!ipc::initServer()) {
         LOG_ERROR("Failed to initialize IPC server");
+        ipc::cleanup();
         return 1;
     }
 
@@ -23,6 +24,7 @@ int main() {
     interfaces::checkAndUpdate(machineId);
     if (interfaces::monitoredEthInterfaces.empty()) {
         LOG_ERROR("No active Ethernet interfaces found!");
+        ipc::cleanup();
         return 1;
     }
 

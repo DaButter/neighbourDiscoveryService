@@ -38,9 +38,5 @@ struct MonitoredEthInterface {
 
 namespace interfaces {
     extern std::unordered_map<std::string, MonitoredEthInterface> monitoredEthInterfaces;
-
-    std::unordered_map<std::string, EthInterface> discover();
-    void add(const EthInterface& ethInterface, const uint8_t* machineId);
-    void update(const EthInterface& ethInterface, const uint8_t* machineId);
     void checkAndUpdate(const uint8_t* machineId);
 }
