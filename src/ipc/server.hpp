@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <cstring>
+#include <vector>
 
 #include "../utils/utils.hpp"
 #include "../protocol/neighbors.hpp"

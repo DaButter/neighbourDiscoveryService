@@ -43,29 +43,69 @@ namespace ipc {
         return true;
     }
 
-    static void handleClient(int client_fd) {
-        // send neighbor count
-        uint32_t neighborCount = neighbor::neighbors.size();
-        send(client_fd, &neighborCount, sizeof(neighborCount), 0);
 
-        // send each neighbor
+    /* Serialize neighbor data into binary protocol format:
+       Protocol structure:
+       [neighbor_count:4 bytes]
+       For each neighbor:
+         [NeighborInfo:36 bytes]
+         [ConnectionInfo:42 bytes] × connectionCount
+
+       Example: 2 neighbors, first has 2 connections, second has 1:
+       [0x02,0x00,0x00,0x00] [NeighborInfo] [ConnInfo] [ConnInfo] [NeighborInfo] [ConnInfo]
+    */
+    static void handleClient(int client_fd) {
+        size_t total_conns = 0;
+        for (const auto& [_, neighbor] : neighbor::neighbors) {
+            total_conns += neighbor.connections.size();
+        }
+
+        size_t buffer_size = sizeof(uint32_t) +
+                             neighbor::neighbors.size() * sizeof(NeighborInfo) +
+                             total_conns * sizeof(ConnectionInfo);
+
+        static std::vector<uint8_t> buffer;
+        buffer.clear();
+        buffer.reserve(buffer_size);
+
+        // form buffer
+        uint32_t neighborCount = neighbor::neighbors.size();
+        uint8_t* count_ptr = reinterpret_cast<uint8_t*>(&neighborCount);
+        buffer.insert(buffer.end(), count_ptr, count_ptr + sizeof(neighborCount));
+
         for (const auto& [machineId, neighbor] : neighbor::neighbors) {
-            // send neighbor info
-            NeighborInfo info;
+            NeighborInfo info{};
             std::memcpy(info.machineId, machineId.c_str(), MACHINE_ID_LEN);
             info.connectionCount = neighbor.connections.size();
-            send(client_fd, &info, sizeof(info), 0);
 
-            // send each connection
+            uint8_t* info_ptr = reinterpret_cast<uint8_t*>(&info);
+            buffer.insert(buffer.end(), info_ptr, info_ptr + sizeof(info));
+
             for (const auto& [ifname, conn] : neighbor.connections) {
-                ConnectionInfo connInfo;
+                ConnectionInfo connInfo{};
                 std::strncpy(connInfo.localIfName, conn.localIfName, IFNAMSIZ);
                 std::memcpy(connInfo.remoteMac, conn.remoteMac, MAC_ADDR_LEN);
                 connInfo.remoteIpv4 = conn.remoteIpv4;
                 std::memcpy(connInfo.remoteIpv6, conn.remoteIpv6, 16);
 
-                send(client_fd, &connInfo, sizeof(connInfo), 0);
+                const uint8_t* conn_ptr = reinterpret_cast<const uint8_t*>(&connInfo);
+                buffer.insert(buffer.end(), conn_ptr, conn_ptr + sizeof(connInfo));
             }
+        }
+
+        // send buffer
+        size_t total_sent = 0;
+        while (total_sent < buffer.size()) {
+            ssize_t sent = send(client_fd, buffer.data() + total_sent, buffer.size() - total_sent, 0);
+            if (sent <= 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    // socket buffer full, send more
+                    continue;
+                }
+                LOG_ERROR("Failed to send to IPC client: " << strerror(errno));
+                break;
+            }
+            total_sent += sent;
         }
 
         close(client_fd);

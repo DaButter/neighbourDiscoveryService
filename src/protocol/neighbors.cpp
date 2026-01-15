@@ -1,6 +1,7 @@
 #include "neighbors.hpp"
 
 namespace neighbor {
+    // should i preallocate more size for the map?
     std::unordered_map<std::string, Neighbor> neighbors;
 
     // check if we can optimize this

@@ -24,47 +24,53 @@ int main() {
         return 1;
     }
 
-    // receive neighbor count
-    uint32_t neighbor_count = 0;
-    ssize_t n = recv(sockfd, &neighbor_count, sizeof(neighbor_count), 0);
-    if (n != sizeof(neighbor_count)) {
+    uint32_t neighborCount = 0;
+    if (recv(sockfd, &neighborCount, sizeof(neighborCount), MSG_WAITALL) != sizeof(neighborCount)) {
         std::cerr << "Failed to receive neighbor count" << std::endl;
         close(sockfd);
         return 1;
     }
 
-    // receive each neighbor
-    for (uint32_t i = 0; i < neighbor_count; ++i) {
+    for (uint32_t i = 0; i < neighborCount; ++i) {
         NeighborInfo info;
-        recv(sockfd, &info, sizeof(info), 0);
+        if (recv(sockfd, &info, sizeof(info), MSG_WAITALL) != sizeof(info)) {
+            std::cerr << "Failed to receive neighbor info" << std::endl;
+            close(sockfd);
+            return 1;
+        }
 
         std::cout << "\n=== Neighbor " << (i + 1) << " ===\n";
         std::cout << "Machine ID: ";
         std::cout.write(info.machineId, MACHINE_ID_LEN);
+        std::cout << '\n';
 
-        // receive each connection
         for (uint32_t j = 0; j < info.connectionCount; ++j) {
             ConnectionInfo conn;
-            recv(sockfd, &conn, sizeof(conn), 0);
+            if (recv(sockfd, &conn, sizeof(conn), MSG_WAITALL) != sizeof(conn)) {
+                std::cerr << "Failed to receive connection info" << std::endl;
+                close(sockfd);
+                return 1;
+            }
 
             std::cout << "\n  Connection " << (j + 1) << ":\n";
-            std::cout << "\tLocal interface: " << conn.localIfName << '\n';
-            std::cout << "\tRemote MAC:      ";
+            std::cout << "    Local interface: " << conn.localIfName << '\n';
+            std::cout << "    Remote MAC:      ";
             utils::printMAC(conn.remoteMac);
             std::cout << '\n';
-            std::cout << "\tRemote IPv4:     ";
+            std::cout << "    Remote IPv4:     ";
             utils::printIPv4(conn.remoteIpv4);
             std::cout << '\n';
-            std::cout << "\tRemote IPv6:     ";
+            std::cout << "    Remote IPv6:     ";
             utils::printIPv6(conn.remoteIpv6);
             std::cout << '\n';
         }
     }
 
-    if (neighbor_count == 0) {
+
+    if (neighborCount == 0) {
         std::cout << "No active neighbors found." << std::endl;
     } else {
-        std::cout << "\nTotal neighbors: " << neighbor_count << std::endl;
+        std::cout << "\nTotal neighbors: " << neighborCount << std::endl;
     }
 
     close(sockfd);

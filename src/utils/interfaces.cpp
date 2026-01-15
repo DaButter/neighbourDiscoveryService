@@ -76,6 +76,12 @@ namespace interfaces {
             return -1;
         }
 
+        // increse receive buffer to handle 10,000 neighbors
+        // int bufsize = 8 * 1024 * 1024;  // 8 MB (holds ~130,000 packets of 66 bytes)
+        // if (setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize)) < 0) {
+            // LOG_WARN("Failed to increase recv buffer on " << ethInterface.name);
+        // }
+
         struct sockaddr_ll addr{};
         addr.sll_family = AF_PACKET;
         addr.sll_ifindex = ethInterface.ifindex;
