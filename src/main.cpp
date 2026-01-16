@@ -1,6 +1,6 @@
 #include "utils/utils.hpp"
 #include "utils/interfaces.hpp"
-#include "protocol/neighbors.hpp"
+#include "neighbor/neighbors.hpp"
 #include "ipc/server.hpp"
 
 int main() {
@@ -19,6 +19,9 @@ int main() {
         ipc::cleanup();
         return 1;
     }
+
+    /* initialize neighbor storage */
+    neighbor::init();
 
     /* initial interface discovery */
     interfaces::checkAndUpdate(machineId);

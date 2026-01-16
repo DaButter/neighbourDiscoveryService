@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "../utils/utils.hpp"
-#include "../protocol/neighbors.hpp"
+#include "../neighbor/neighbors.hpp"
 #include "../common.hpp"
 
 inline constexpr const char* SOCKET_PATH = "/tmp/neighbor_discovery.sock";

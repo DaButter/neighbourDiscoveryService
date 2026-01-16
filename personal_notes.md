@@ -13,7 +13,7 @@ sudo apt install build-essential dkms linux-headers-$(uname -r)
 cd /media/$USER/VBox_GAs_*
 sudo ./VBoxLinuxAdditions.run
 ```
-AFter that, reboot VM.
+After that, reboot VM.
 
 
 For VSC:

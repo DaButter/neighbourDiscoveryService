@@ -23,6 +23,7 @@ struct Neighbor {
 namespace neighbor {
     extern std::unordered_map<std::string, Neighbor> neighbors;
 
+    void init();
     void store(const uint8_t* buffer, const char* ifname);
     void checkTimeout(const time_t& now);
 }

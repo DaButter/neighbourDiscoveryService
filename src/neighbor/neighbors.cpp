@@ -1,10 +1,13 @@
 #include "neighbors.hpp"
 
 namespace neighbor {
-    // should i preallocate more size for the map?
     std::unordered_map<std::string, Neighbor> neighbors;
 
-    // check if we can optimize this
+    // preallocate for 10,000 neighbors to avoid rehashing
+    void init() {
+        neighbors.reserve(10000);
+    }
+
     void store(const uint8_t* buffer, const char* ifname) {
         const uint8_t* srcMac = buffer + MAC_ADDR_LEN;
         const NeighborPayload* payload = reinterpret_cast<const NeighborPayload*>(buffer + PAYLOAD_OFFSET);
@@ -28,7 +31,6 @@ namespace neighbor {
         LOG_DEBUG("  Connections for this neighbor: " << neighbor.connections.size());
     }
 
-    // check if this can be optimized further
     void checkTimeout(const time_t& now) {
         for (auto neighbor_it = neighbors.begin(); neighbor_it != neighbors.end(); ) {
             Neighbor& neighbor = neighbor_it->second;

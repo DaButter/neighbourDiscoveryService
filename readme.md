@@ -6,14 +6,13 @@ ETH_P_NEIGHBOR_DISC = 0x88B5
 
 TODO list:
 
-1. Cleanup to do stuff:
-  * check comments, cleanup code and garbage
+1. Think about if this will work fine with 10 000 neighbours, optimize stuff in code. check out select() and poll() calls. Think about cache limits
+optimize main loop
+
+2. Cleanup to do stuff:
+  * check comments, delete garbage
   * avout include paths like "../.." (update makefile for this?)
   * logging outputs even when running as &, should cout be directed somewhere? or logging should be ditched, just use perror()
-  * check complexity (O(n)) and stuff, optimize loops - there is some parts loop in a loop
-  * preallocate size for maps/vectors (in case we run code for many neighbors)
-
-2. Think about if this will work fine with 10 000 neighbours, optimize stuff in code. check out select() and poll() calls. Think about cache limits
 
 3. Format a readme file to describe this project
 
