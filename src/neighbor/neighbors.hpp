@@ -4,8 +4,8 @@
 #include <cstring>
 #include <string>
 #include <net/if.h>
-#include "../common.hpp"
-#include "../utils/utils.hpp"
+#include "common.hpp"
+#include "utils/utils.hpp"
 
 struct Connection {
     char localIfName[IFNAMSIZ];

@@ -1,3 +1,8 @@
+
+# Neighbor Discovery Service
+
+A background service that discovers neighbors running the same service in connected Ethernet networks.
+
 Defined custom ethertype:
 
 ```sh
@@ -20,6 +25,22 @@ FINALLY:
 
 4. Test this, create test scenarios. Is it fine with virtualbox?
 5. final code review!!!! Reheck if everything matches criteria
+
+## Running the Service
+### Start in background with logging:
+```bash
+sudo ./neighbor_discovery_service >> service.log 2>&1 &
+```
+
+### View logs:
+```bash
+tail -f service.log
+```
+
+### Stop service:
+```bash
+sudo pkill neighbor_discovery_service
+```
 
 
 CLI output example:

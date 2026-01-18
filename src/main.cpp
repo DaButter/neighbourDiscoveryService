@@ -4,8 +4,6 @@
 #include "ipc/server.hpp"
 
 int main() {
-    LOG_INFO("Neighbor Discovery Service starting...");
-
     /* get machine UID */
     uint8_t machineId[MACHINE_ID_LEN];
     if (!utils::getMachineId(machineId)) {
@@ -34,8 +32,7 @@ int main() {
     const int SEND_INTERVAL_SEC = 5;
     time_t last_send_time = 0;
     uint8_t recvBuf[PAYLOAD_OFFSET + sizeof(NeighborPayload)];
-
-    LOG_INFO("Service running on " << interfaces::monitoredEthInterfaces.size() << " interface(s)");
+    LOG_INFO("Neighbor discovery service started");
 
     /* main loop */
     while (true) {
@@ -105,8 +102,9 @@ int main() {
 
         /*
             Average packet processing time: ~1000-2000ns (recv + neighbor::store)
-            So theoretically, we could process up to 5,000,000 - 10,000,000 packets per second per interface.
+            Theoretically, we could process up to 5,000,000 - 10,000,000 packets per second per interface.
             However, to be safe, lets limit the number of packets processed per select() iteration.
+            This prevents edge cases where incoming packets > packet processing time and we get stuck on an interface processing.
         */
         constexpr int MAX_PKTS_PER_ITER = 100000;
         for (auto& [ifname, ethInterface] : interfaces::monitoredEthInterfaces) {

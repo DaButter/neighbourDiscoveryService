@@ -39,7 +39,7 @@ namespace neighbor {
 
             for (auto conn_it = neighbor.connections.begin(); conn_it != neighbor.connections.end(); ) {
                 if (now - conn_it->second.lastSeen > NEIGHBOR_EXPIRY_SECONDS) {
-                    LOG_DEBUG("Connection timeout: " << neighbor_it->first << " on " << conn_it->first);
+                    LOG_INFO("Connection timeout: " << neighbor_it->first << " on " << conn_it->first);
                     conn_it = neighbor.connections.erase(conn_it);
                 } else {
                     ++conn_it;
@@ -47,7 +47,7 @@ namespace neighbor {
             }
 
             if (neighbor.connections.empty()) {
-                LOG_DEBUG("Neighbor removed, no active connections: " << neighbor_it->first);
+                LOG_INFO("Neighbor removed, no active connections: " << neighbor_it->first);
                 neighbor_it = neighbors.erase(neighbor_it);
             } else {
                 ++neighbor_it;

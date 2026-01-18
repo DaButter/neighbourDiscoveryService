@@ -78,9 +78,10 @@ namespace interfaces {
             return -1;
         }
 
-        /* by default, Linux kernel allocated small recv buffer: 212992 bytes (able to queue ~3000 incoming NeigborPayload(66 bytes without padding) packets)
-           so the packets do not get dropped, when there are many neighbors,
-           lets increase recv buffer 8 MB (holds ~130,000 packets of 66 bytes)
+        /* By default, Linux kernel allocates small recv buffer: 212992 bytes
+           which ables us to queue ~3000 incoming NeighborPayload packets.
+           This may be not enough for a larger amount of Neighbors.
+           Increasing recv buffer to 8 MB lets us queue up to ~130,000 NeighborPayload packets,
         */
         int bufsize = 8 * 1024 * 1024;
         if (setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize)) < 0) {

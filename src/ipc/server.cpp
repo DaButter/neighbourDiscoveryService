@@ -116,7 +116,7 @@ namespace ipc {
 
         int client_fd = accept(server_fd, nullptr, nullptr);
         if (client_fd >= 0) {
-            LOG_DEBUG("IPC client connected");
+            LOG_INFO("IPC client connected");
             handleClient(client_fd);
         }
     }

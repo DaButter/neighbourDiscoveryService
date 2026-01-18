@@ -9,9 +9,9 @@
 #include <cstring>
 #include <vector>
 
-#include "../utils/utils.hpp"
-#include "../neighbor/neighbors.hpp"
-#include "../common.hpp"
+#include "utils/utils.hpp"
+#include "neighbor/neighbors.hpp"
+#include "common.hpp"
 
 inline constexpr const char* SOCKET_PATH = "/tmp/neighbor_discovery.sock";
 

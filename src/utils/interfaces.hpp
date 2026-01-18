@@ -8,8 +8,8 @@
 #include <sys/socket.h>
 #include <netpacket/packet.h>
 #include <unistd.h>
-#include "../common.hpp"
-#include "../utils/utils.hpp"
+#include "common.hpp"
+#include "utils/utils.hpp"
 
 struct EthInterface {
     std::string name;
