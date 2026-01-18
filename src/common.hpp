@@ -8,6 +8,8 @@ inline constexpr std::size_t PAYLOAD_OFFSET = 14;
 inline constexpr std::size_t MACHINE_ID_LEN = 32;
 inline constexpr int NEIGHBOR_EXPIRY_SECONDS = 30;
 inline constexpr uint8_t broadcastMac[MAC_ADDR_LEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+inline constexpr int MAX_PKTS_PER_ITER = 100000;
+inline constexpr int SEND_INTERVAL_SEC = 5;
 
 /*
     IEEE Std 802 - Local Experimental Ethertype

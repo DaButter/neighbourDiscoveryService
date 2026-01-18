@@ -9,8 +9,8 @@ SERVICE_OBJ = $(SERVICE_SRC:src/%.cpp=$(OBJDIR)/%.o)
 CLI_SRC = src/cli.cpp
 CLI_OBJ = $(OBJDIR)/utils/utils.o
 
-SERVICE = neighbor_discovery_service
-CLI = neighbor_discovery_cli
+SERVICE = ndisc_svc
+CLI = ndisc_cli
 
 all: $(SERVICE) $(CLI)
 
@@ -33,4 +33,10 @@ $(CLI): $(CLI_SRC) $(CLI_OBJ)
 clean:
 	rm -rf $(OBJDIR) $(SERVICE) $(CLI)
 
-.PHONY: all clean
+.PHONY: all clean help
+
+help:
+	@echo "Makefile targets:"
+	@echo "  all    - Build service and CLI"
+	@echo "  clean  - Remove build artifacts"
+	@echo "  help   - Show this help message"

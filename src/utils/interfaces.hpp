@@ -8,6 +8,8 @@
 #include <sys/socket.h>
 #include <netpacket/packet.h>
 #include <unistd.h>
+#include <cerrno>
+
 #include "common.hpp"
 #include "utils/utils.hpp"
 

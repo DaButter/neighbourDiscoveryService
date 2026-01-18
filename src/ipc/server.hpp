@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <cstring>
 #include <vector>
+#include <cerrno>
 
 #include "utils/utils.hpp"
 #include "neighbor/neighbors.hpp"

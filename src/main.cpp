@@ -2,6 +2,7 @@
 #include "utils/interfaces.hpp"
 #include "neighbor/neighbors.hpp"
 #include "ipc/server.hpp"
+#include "common.hpp"
 
 int main() {
     /* get machine UID */
@@ -29,7 +30,6 @@ int main() {
         return 1;
     }
 
-    const int SEND_INTERVAL_SEC = 5;
     time_t last_send_time = 0;
     uint8_t recvBuf[PAYLOAD_OFFSET + sizeof(NeighborPayload)];
     LOG_INFO("Neighbor discovery service started");
@@ -106,7 +106,6 @@ int main() {
             However, to be safe, lets limit the number of packets processed per select() iteration.
             This prevents edge cases where incoming packets > packet processing time and we get stuck on an interface processing.
         */
-        constexpr int MAX_PKTS_PER_ITER = 100000;
         for (auto& [ifname, ethInterface] : interfaces::monitoredEthInterfaces) {
             int processed = 0;
             if (FD_ISSET(ethInterface.sockfd, &readfds)) {

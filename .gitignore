@@ -1,4 +1,5 @@
 obj/
 *.o
-neighbor_discovery_service
-neighbor_discovery_cli
+ndisc_svc
+ndisc_cli
+*.log

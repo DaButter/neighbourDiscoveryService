@@ -49,7 +49,7 @@ namespace ipc {
        [neighbor_count:4 bytes]
        For each neighbor:
          [NeighborInfo:36 bytes]
-         [ConnectionInfo:42 bytes] × connectionCount
+         [ConnectionInfo:42 bytes] x connectionCount
 
        Example: 2 neighbors, first has 2 connections, second has 1:
        [0x02,0x00,0x00,0x00] [NeighborInfo] [ConnInfo] [ConnInfo] [NeighborInfo] [ConnInfo]
