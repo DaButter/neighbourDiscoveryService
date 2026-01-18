@@ -8,6 +8,7 @@ namespace neighbor {
         neighbors.reserve(10000);
     }
 
+    // check if we need optimization here - critical part
     void store(const uint8_t* buffer, const char* ifname) {
         const uint8_t* srcMac = buffer + MAC_ADDR_LEN;
         const NeighborPayload* payload = reinterpret_cast<const NeighborPayload*>(buffer + PAYLOAD_OFFSET);
@@ -26,9 +27,9 @@ namespace neighbor {
         std::memcpy(conn.remoteIpv6, payload->ipv6, 16);
         conn.lastSeen = time(nullptr);
 
-        LOG_DEBUG("Updated neighbor " << machineId << " on " << ifname);
-        LOG_DEBUG("  Total neighbors: " << neighbors.size());
-        LOG_DEBUG("  Connections for this neighbor: " << neighbor.connections.size());
+        // LOG_DEBUG("Updated neighbor " << machineId << " on " << ifname);
+        // LOG_DEBUG("  Total neighbors: " << neighbors.size());
+        // LOG_DEBUG("  Connections for this neighbor: " << neighbor.connections.size());
     }
 
     void checkTimeout(const time_t& now) {

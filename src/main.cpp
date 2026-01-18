@@ -40,14 +40,11 @@ int main() {
     /* main loop */
     while (true) {
         time_t now = time(nullptr);
-        neighbor::checkTimeout(now);
 
-        /* check IPC clients */
-        ipc::checkClients();
-
-        /* check interfaces and send */
+        /* check interfaces, check neigbour timeout and send */
         if (now - last_send_time >= SEND_INTERVAL_SEC) {
             interfaces::checkAndUpdate(machineId);
+            neighbor::checkTimeout(now);
 
             if (interfaces::monitoredEthInterfaces.empty()) {
                 LOG_WARN("No active Ethernet interfaces found, skipping send");
@@ -64,9 +61,10 @@ int main() {
                                       sizeof(ethInterface.send_addr));
                 if (sent < 0) {
                     LOG_ERROR("sendto() failed on " << ifname << ": " << strerror(errno));
-                } else {
-                    LOG_DEBUG("Sent packet on " << ifname);
                 }
+                // else {
+                    // LOG_DEBUG("Sent packet on " << ifname);
+                // }
             }
 
             last_send_time = now;
@@ -88,7 +86,7 @@ int main() {
             }
         }
 
-        // add IPC server socket
+        // also add IPC server fd to fdset for monitoring
         if (ipc::server_fd >= 0) {
             FD_SET(ipc::server_fd, &readfds);
             if (ipc::server_fd > max_fd) {
@@ -99,7 +97,6 @@ int main() {
         /* wait for incoming packets */
         struct timeval timeout{};
         timeout.tv_sec = time_until_send;
-        // timeout.tv_usec = 0;
 
         int ret = select(max_fd + 1, &readfds, nullptr, nullptr, &timeout);
         if (ret < 0) {
@@ -110,24 +107,63 @@ int main() {
             continue;
         }
 
-        if (ipc::server_fd >= 0 && FD_ISSET(ipc::server_fd, &readfds)) {
+        if (FD_ISSET(ipc::server_fd, &readfds)) {
             ipc::checkClients();
         }
 
         /* check which sockets have data */
         /* this reads packets one by one for each interface - will need to consider optimizing + think if kernel inBuf is not dropping packets for 10 000 neighbors */
         /* quite bad tbh */
+        // for (auto& [ifname, ethInterface] : interfaces::monitoredEthInterfaces) {
+        //     if (FD_ISSET(ethInterface.sockfd, &readfds)) {
+        //         ssize_t n = recv(ethInterface.sockfd, recvBuf, sizeof(recvBuf), 0); // MSG_DONTWAIT?
+        //         if (n <= 0) {
+        //             LOG_ERROR("recv() failed on " << ifname << ": " << strerror(errno));
+        //             continue;
+        //         }
+
+        //         /* while processing packets, other packets may arrive - they will be inBufed by kernel in a queue */
+        //         /* receive inBuf is small: 212992 bytes on my machine */
+        //         neighbor::store(recvBuf, ifname.c_str());
+        //     }
+        // }
+
+        /* drain all available packets from each interface */
         for (auto& [ifname, ethInterface] : interfaces::monitoredEthInterfaces) {
             if (FD_ISSET(ethInterface.sockfd, &readfds)) {
-                ssize_t n = recv(ethInterface.sockfd, recvBuf, sizeof(recvBuf), 0); // MSG_DONTWAIT?
-                if (n <= 0) {
-                    LOG_ERROR("recv() failed on " << ifname << ": " << strerror(errno));
-                    continue;
+                int packets_drained = 0;
+
+                struct timespec start, end;
+                clock_gettime(CLOCK_MONOTONIC, &start);
+
+                /* hoping this never happens: packet processing rate < packet arrival rate on an interface */
+                while (true) {
+                    ssize_t n = recv(ethInterface.sockfd, recvBuf, sizeof(recvBuf), MSG_DONTWAIT);
+                    if (n <= 0) {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                            break;  // No more packets available
+                        }
+                        LOG_ERROR("recv() failed on " << ifname << ": " << strerror(errno));
+                        break;
+                    }
+
+                    neighbor::store(recvBuf, ifname.c_str());
+                    ++packets_drained;
                 }
 
-                /* while processing packets, other packets may arrive - they will be inBufed by kernel in a queue */
-                /* receive inBuf is small: 212992 bytes on my machine */
-                neighbor::store(recvBuf, ifname.c_str());
+                if (packets_drained > 0) {
+                    clock_gettime(CLOCK_MONOTONIC, &end);
+                    long elapsed_ns = (end.tv_sec - start.tv_sec) * 1000000000L + 
+                                     (end.tv_nsec - start.tv_nsec);
+                    long ns_per_packet = elapsed_ns / packets_drained;
+                    LOG_INFO("Drained " << packets_drained << " packets from " << ifname 
+                             << " in " << elapsed_ns << "ns (" << ns_per_packet << "ns/pkt, "
+                             << (1000000000L / ns_per_packet) << " pkt/sec)");
+                }
+
+                // if (packets_drained > 0) {
+                    // LOG_DEBUG("Drained " << packets_drained << " packets from " << ifname);
+                // }
             }
         }
     }
