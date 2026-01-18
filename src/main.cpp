@@ -59,14 +59,8 @@ int main() {
                                       0,
                                       (struct sockaddr*)&ethInterface.send_addr,
                                       sizeof(ethInterface.send_addr));
-                if (sent < 0) {
-                    LOG_ERROR("sendto() failed on " << ifname << ": " << strerror(errno));
-                }
-                // else {
-                    // LOG_DEBUG("Sent packet on " << ifname);
-                // }
+                if (sent < 0) LOG_ERROR("sendto() failed on " << ifname << ": " << strerror(errno));
             }
-
             last_send_time = now;
         }
 
@@ -74,7 +68,7 @@ int main() {
         time_t time_until_send = SEND_INTERVAL_SEC - (now - last_send_time);
         if (time_until_send < 0) time_until_send = 0;
 
-        /* build fd_set for all interfaces */
+        /* build fd_set for interfaces + IPC server */
         fd_set readfds;
         FD_ZERO(&readfds);
         int max_fd = 0;
@@ -86,7 +80,6 @@ int main() {
             }
         }
 
-        // also add IPC server fd to fdset for monitoring
         if (ipc::server_fd >= 0) {
             FD_SET(ipc::server_fd, &readfds);
             if (ipc::server_fd > max_fd) {
@@ -103,67 +96,35 @@ int main() {
             LOG_ERROR("select() failed: " << strerror(errno));
             continue;
         } else if (ret == 0) {
-            /* data waiting timeout - loop to send */
-            continue;
+            continue; // no fd is set, loop back to sending
         }
 
         if (FD_ISSET(ipc::server_fd, &readfds)) {
             ipc::checkClients();
         }
 
-        /* check which sockets have data */
-        /* this reads packets one by one for each interface - will need to consider optimizing + think if kernel inBuf is not dropping packets for 10 000 neighbors */
-        /* quite bad tbh */
-        // for (auto& [ifname, ethInterface] : interfaces::monitoredEthInterfaces) {
-        //     if (FD_ISSET(ethInterface.sockfd, &readfds)) {
-        //         ssize_t n = recv(ethInterface.sockfd, recvBuf, sizeof(recvBuf), 0); // MSG_DONTWAIT?
-        //         if (n <= 0) {
-        //             LOG_ERROR("recv() failed on " << ifname << ": " << strerror(errno));
-        //             continue;
-        //         }
-
-        //         /* while processing packets, other packets may arrive - they will be inBufed by kernel in a queue */
-        //         /* receive inBuf is small: 212992 bytes on my machine */
-        //         neighbor::store(recvBuf, ifname.c_str());
-        //     }
-        // }
-
-        /* drain all available packets from each interface */
+        /*
+            Average packet processing time: ~1000-2000ns (recv + neighbor::store)
+            So theoretically, we could process up to 5,000,000 - 10,000,000 packets per second per interface.
+            However, to be safe, lets limit the number of packets processed per select() iteration.
+        */
+        constexpr int MAX_PKTS_PER_ITER = 100000;
         for (auto& [ifname, ethInterface] : interfaces::monitoredEthInterfaces) {
+            int processed = 0;
             if (FD_ISSET(ethInterface.sockfd, &readfds)) {
-                int packets_drained = 0;
 
-                struct timespec start, end;
-                clock_gettime(CLOCK_MONOTONIC, &start);
-
-                /* hoping this never happens: packet processing rate < packet arrival rate on an interface */
-                while (true) {
+                while (processed < MAX_PKTS_PER_ITER) {
                     ssize_t n = recv(ethInterface.sockfd, recvBuf, sizeof(recvBuf), MSG_DONTWAIT);
                     if (n <= 0) {
                         if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                            break;  // No more packets available
+                            break;  // all packets drained
                         }
                         LOG_ERROR("recv() failed on " << ifname << ": " << strerror(errno));
                         break;
                     }
-
                     neighbor::store(recvBuf, ifname.c_str());
-                    ++packets_drained;
+                    processed++;
                 }
-
-                if (packets_drained > 0) {
-                    clock_gettime(CLOCK_MONOTONIC, &end);
-                    long elapsed_ns = (end.tv_sec - start.tv_sec) * 1000000000L + 
-                                     (end.tv_nsec - start.tv_nsec);
-                    long ns_per_packet = elapsed_ns / packets_drained;
-                    LOG_INFO("Drained " << packets_drained << " packets from " << ifname 
-                             << " in " << elapsed_ns << "ns (" << ns_per_packet << "ns/pkt, "
-                             << (1000000000L / ns_per_packet) << " pkt/sec)");
-                }
-
-                // if (packets_drained > 0) {
-                    // LOG_DEBUG("Drained " << packets_drained << " packets from " << ifname);
-                // }
             }
         }
     }

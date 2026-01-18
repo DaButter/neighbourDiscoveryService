@@ -8,28 +8,29 @@ namespace neighbor {
         neighbors.reserve(10000);
     }
 
-    // check if we need optimization here - critical part
     void store(const uint8_t* buffer, const char* ifname) {
         const uint8_t* srcMac = buffer + MAC_ADDR_LEN;
         const NeighborPayload* payload = reinterpret_cast<const NeighborPayload*>(buffer + PAYLOAD_OFFSET);
-
         std::string machineId(reinterpret_cast<const char*>(payload->machineId), MACHINE_ID_LEN);
 
-        // get or create neighbor entry
-        Neighbor& neighbor = neighbors[machineId];
-        neighbor.machineId = machineId;
+        auto [it, inserted] = neighbors.try_emplace(machineId);
+        Neighbor& neighbor = it->second;
 
-        // update or create connection for this interface
-        Connection& conn = neighbor.connections[ifname];
-        std::strncpy(conn.localIfName, ifname, IFNAMSIZ);
+        if (inserted) {
+            neighbor.machineId = machineId;
+        }
+
+        // update or create connection entry
+        auto [it_conn, inserted_conn] = neighbor.connections.try_emplace(ifname);
+        Connection& conn = it_conn->second;
+
+        if (inserted_conn) {
+            std::snprintf(conn.localIfName, IFNAMSIZ, "%s", ifname);
+        }
         std::memcpy(conn.remoteMac, srcMac, MAC_ADDR_LEN);
         conn.remoteIpv4 = ntohl(payload->ipv4);
         std::memcpy(conn.remoteIpv6, payload->ipv6, 16);
         conn.lastSeen = time(nullptr);
-
-        // LOG_DEBUG("Updated neighbor " << machineId << " on " << ifname);
-        // LOG_DEBUG("  Total neighbors: " << neighbors.size());
-        // LOG_DEBUG("  Connections for this neighbor: " << neighbor.connections.size());
     }
 
     void checkTimeout(const time_t& now) {

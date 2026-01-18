@@ -18,6 +18,10 @@ struct Connection {
 struct Neighbor {
     std::string machineId;
     std::unordered_map<std::string, Connection> connections;
+
+    Neighbor() {
+        connections.reserve(4);
+    }
 };
 
 namespace neighbor {

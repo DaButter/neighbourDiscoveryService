@@ -27,7 +27,7 @@ namespace interfaces {
 
             switch (ifa->ifa_addr->sa_family) {
                 /* link layer - get MAC address and interface index */
-                case AF_PACKET: { // link local fe80::f905:2652:fc67:be5d - what is that? isnt it 127.0.0.1?
+                case AF_PACKET: {
                     struct sockaddr_ll* addr_ll = (struct sockaddr_ll*)ifa->ifa_addr;
                     iface.ifindex = addr_ll->sll_ifindex;
                     if (addr_ll->sll_halen == MAC_ADDR_LEN) {
@@ -78,7 +78,11 @@ namespace interfaces {
             return -1;
         }
 
-        int bufsize = 8 * 1024 * 1024;  // 8 MB (holds ~130,000 packets of 66 bytes)
+        /* by default, Linux kernel allocated small recv buffer: 212992 bytes (able to queue ~3000 incoming NeigborPayload(66 bytes without padding) packets)
+           so the packets do not get dropped, when there are many neighbors,
+           lets increase recv buffer 8 MB (holds ~130,000 packets of 66 bytes)
+        */
+        int bufsize = 8 * 1024 * 1024;
         if (setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize)) < 0) {
             LOG_WARN("Failed to increase recv buffer on " << ethInterface.name);
         }
